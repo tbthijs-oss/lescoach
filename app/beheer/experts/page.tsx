@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -261,7 +260,6 @@ function DeleteConfirmModal({
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function ExpertsPage() {
-  const router = useRouter();
   const [experts, setExperts] = useState<Expert[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingExpert, setEditingExpert] = useState<Expert | null | "new">(null);
@@ -277,10 +275,6 @@ export default function ExpertsPage() {
     setLoading(true);
     try {
       const res = await fetch("/api/beheer/experts");
-      if (res.status === 401 || res.status === 302) {
-        router.push("/beheer/login");
-        return;
-      }
       const records: AirtableRecord[] = await res.json();
       setExperts(records.map(parseRecord));
     } catch {
@@ -288,7 +282,7 @@ export default function ExpertsPage() {
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     loadExperts();
@@ -320,11 +314,6 @@ export default function ExpertsPage() {
     await loadExperts();
   }
 
-  async function handleLogout() {
-    await fetch("/api/beheer/auth", { method: "DELETE" });
-    router.push("/beheer/login");
-  }
-
   async function toggleBeschikbaar(expert: Expert) {
     await fetch(`/api/beheer/experts/${expert.id}`, {
       method: "PATCH",
@@ -336,7 +325,7 @@ export default function ExpertsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div>
       {/* Modals */}
       {editingExpert !== null && (
         <ExpertFormModal
@@ -362,33 +351,24 @@ export default function ExpertsPage() {
         </div>
       )}
 
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      {/* Page header */}
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Expertenbeheer</h1>
-          <p className="text-xs text-slate-500 mt-0.5">LesCoach — beheeromgeving</p>
+          <h1 className="text-xl font-bold text-slate-800">Experts</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Beheer het expertennetwerk van LesCoach</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setEditingExpert("new")}
-            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Nieuwe expert
-          </button>
-          <button
-            onClick={handleLogout}
-            className="text-sm text-slate-500 hover:text-slate-700 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors"
-          >
-            Uitloggen
-          </button>
-        </div>
-      </header>
+        <button
+          onClick={() => setEditingExpert("new")}
+          className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Nieuwe expert
+        </button>
+      </div>
 
-      {/* Content */}
-      <main className="p-6 max-w-5xl mx-auto">
+      <div>
         {loading ? (
           <div className="flex items-center justify-center py-24">
             <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -483,7 +463,7 @@ export default function ExpertsPage() {
             ))}
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }
