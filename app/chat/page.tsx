@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { JeroenAvatar } from "@/components/JeroenAvatar";
+import { NoorAvatar } from "@/components/JeroenAvatar";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -71,8 +71,8 @@ function OnboardingScreen({ onStart }: { onStart: (name: string, school: string)
       <div className="w-full max-w-sm">
         {/* Logo + avatar */}
         <div className="flex flex-col items-center mb-8">
-          <JeroenAvatar size={80} className="mb-4 drop-shadow-lg" />
-          <h1 className="text-2xl font-bold text-slate-800">Hoi, ik ben Jeroen</h1>
+          <NoorAvatar size={80} className="mb-4 drop-shadow-lg" />
+          <h1 className="text-2xl font-bold text-slate-800">Hoi, ik ben Noor</h1>
           <p className="text-slate-500 text-sm mt-2 text-center leading-relaxed">
             Specialist speciaal onderwijs. Ik help je snel de juiste ondersteuning vinden voor jouw leerling.
           </p>
@@ -133,7 +133,7 @@ function OnboardingScreen({ onStart }: { onStart: (name: string, school: string)
 function TypingIndicator() {
   return (
     <div className="flex items-start gap-3">
-      <JeroenAvatar size={32} className="shrink-0 mt-0.5" />
+      <NoorAvatar size={32} className="shrink-0 mt-0.5" />
       <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
         <div className="flex gap-1 items-center h-5">
           <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:0ms]" />
@@ -618,9 +618,9 @@ export default function ChatPage() {
       {/* Header */}
       <header className="bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between shrink-0 safe-top">
         <Link href="/" className="flex items-center gap-2.5">
-          <JeroenAvatar size={32} />
+          <NoorAvatar size={32} />
           <div>
-            <span className="text-slate-800 font-semibold text-sm">Jeroen</span>
+            <span className="text-slate-800 font-semibold text-sm">Noor</span>
             <span className="text-slate-400 text-xs block leading-tight">LesCoach specialist</span>
           </div>
         </Link>
@@ -671,7 +671,7 @@ export default function ChatPage() {
                 <div key={i} className="space-y-2">
                   <div className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
                     {msg.role === "assistant" && (
-                      <JeroenAvatar size={32} className="shrink-0 mt-0.5" />
+                      <NoorAvatar size={32} className="shrink-0 mt-0.5" />
                     )}
                     {msg.role === "user" && (
                       <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-slate-600 font-bold text-sm">
@@ -777,7 +777,7 @@ export default function ChatPage() {
                   </svg>
                 </div>
                 <div>
-                  <h2 className="font-semibold text-slate-800 text-sm leading-tight">Advies van Jeroen</h2>
+                  <h2 className="font-semibold text-slate-800 text-sm leading-tight">Advies van Noor</h2>
                   <p className="text-xs text-slate-400 leading-tight">
                     {kenniskaarten.length} kenniskaart{kenniskaarten.length !== 1 ? "en" : ""}
                     {displayExperts.length > 0 ? ` · ${displayExperts.length} expert${displayExperts.length !== 1 ? "s" : ""}` : ""}
@@ -813,7 +813,7 @@ export default function ChatPage() {
                   </div>
 
                   <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-700 leading-relaxed">
-                    Jeroen heeft {displayExperts.length === 1 ? "een expert" : "experts"} gevonden die past bij de uitdaging die je beschreef. {displayExperts.length === 1 ? "Zij ontvangt" : "Zij ontvangen"} automatisch het volledige gespreksverslag.
+                    Noor heeft {displayExperts.length === 1 ? "een expert" : "experts"} gevonden die past bij de uitdaging die je beschreef. {displayExperts.length === 1 ? "Zij ontvangt" : "Zij ontvangen"} automatisch het volledige gespreksverslag.
                   </div>
 
                   {displayExperts.map((expert) => (
@@ -860,7 +860,7 @@ export default function ChatPage() {
               </svg>
             </div>
             <h2 className="font-semibold text-slate-800 text-sm">
-              Advies van Jeroen
+              Advies van Noor
             </h2>
             <span className="text-xs text-slate-400 ml-auto">{kenniskaarten.length} kaart{kenniskaarten.length !== 1 ? "en" : ""}</span>
           </div>

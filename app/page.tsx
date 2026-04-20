@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { JeroenAvatar } from "@/components/JeroenAvatar";
+import { NoorAvatar } from "@/components/JeroenAvatar";
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -12,7 +12,7 @@ const BENEFITS = [
     ),
     titel: "Direct antwoord, geen wachtrij",
     tekst:
-      "Geen afspraak plannen, geen e-mail sturen en wachten. Jeroen geeft binnen 5 minuten een gericht advies — ook op zaterdag om 22:00.",
+      "Geen afspraak plannen, geen e-mail sturen en wachten. Noor geeft binnen 5 minuten een gericht advies — ook op zaterdag om 22:00.",
   },
   {
     icon: (
@@ -22,7 +22,7 @@ const BENEFITS = [
     ),
     titel: "Volledig anoniem",
     tekst:
-      "Je noemt nooit de naam van het kind. Jeroen werkt altijd met 'de leerling' — geen persoonsgegevens, geen dossier, geen AVG-risico.",
+      "Je noemt nooit de naam van het kind. Noor werkt altijd met 'de leerling' — geen persoonsgegevens, geen dossier, geen AVG-risico.",
   },
   {
     icon: (
@@ -32,7 +32,7 @@ const BENEFITS = [
     ),
     titel: "Concrete klassenstips",
     tekst:
-      "Geen vage theorie. Jeroen geeft je tips die je morgen al kunt toepassen — specifiek voor jouw groep, jouw leerling, jouw situatie.",
+      "Geen vage theorie. Noor geeft je tips die je morgen al kunt toepassen — specifiek voor jouw groep, jouw leerling, jouw situatie.",
   },
   {
     icon: (
@@ -42,7 +42,7 @@ const BENEFITS = [
     ),
     titel: "De juiste expert, automatisch gematchd",
     tekst:
-      "Jeroen zoekt de specialist die het beste past bij de specifieke uitdaging — niet een generalist, maar iemand met precies die specialisatie.",
+      "Noor zoekt de specialist die het beste past bij de specifieke uitdaging — niet een generalist, maar iemand met precies die specialisatie.",
   },
   {
     icon: (
@@ -62,7 +62,7 @@ const BENEFITS = [
     ),
     titel: "Begrijpelijke taal",
     tekst:
-      "Geen DSM-codes, geen klinisch jargon. Jeroen legt uit in gewone taal wat er speelt en wat het betekent voor jouw klas.",
+      "Geen DSM-codes, geen klinisch jargon. Noor legt uit in gewone taal wat er speelt en wat het betekent voor jouw klas.",
   },
   {
     icon: (
@@ -72,7 +72,7 @@ const BENEFITS = [
     ),
     titel: "Juridisch veilig",
     tekst:
-      "Jeroen stelt nooit een diagnose. Hij werkt binnen de kaders van de BIG-wet, AVG, Jeugdwet en de Meldcode — altijd. Dat is ingebakken, niet optioneel.",
+      "Noor stelt nooit een diagnose. Ze werkt binnen de kaders van de BIG-wet, AVG, Jeugdwet en de Meldcode — altijd. Dat is ingebakken, niet optioneel.",
   },
   {
     icon: (
@@ -92,7 +92,7 @@ const BENEFITS = [
     ),
     titel: "24/7 beschikbaar",
     tekst:
-      "Ook 's avonds, in het weekend, tijdens de zomervakantie. Wanneer jij klaar bent om erover na te denken, is Jeroen er.",
+      "Ook 's avonds, in het weekend, tijdens de zomervakantie. Wanneer jij klaar bent om erover na te denken, is Noor er.",
   },
   {
     icon: (
@@ -112,7 +112,7 @@ const BENEFITS = [
     ),
     titel: "Geen login, geen gedoe",
     tekst:
-      "Geen account aanmaken, geen wachtwoord onthouden, geen cookie-acceptatie. Je start het gesprek en Jeroen helpt je meteen.",
+      "Geen account aanmaken, geen wachtwoord onthouden, geen cookie-acceptatie. Je start het gesprek en Noor helpt je meteen.",
   },
   {
     icon: (
@@ -175,7 +175,7 @@ export default function Home() {
       <header className="bg-white border-b border-slate-100 px-6 py-4 sticky top-0 z-10">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <JeroenAvatar size={32} />
+            <NoorAvatar size={32} />
             <div>
               <span className="text-slate-800 font-semibold text-sm">LesCoach</span>
               <span className="text-slate-400 text-xs block leading-tight">door Jeroen Hendricks</span>
@@ -194,11 +194,11 @@ export default function Home() {
       <section className="px-6 py-20 bg-gradient-to-b from-blue-50/60 to-white text-center">
         <div className="max-w-2xl mx-auto">
           <div className="flex justify-center mb-6">
-            <JeroenAvatar size={88} className="drop-shadow-md" />
+            <NoorAvatar size={88} className="drop-shadow-md" />
           </div>
           <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 text-sm font-medium px-4 py-1.5 rounded-full mb-6">
             <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-            Hoi, ik ben Jeroen — specialist speciaal onderwijs
+            Hoi, ik ben Noor — specialist speciaal onderwijs
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 leading-tight mb-5">
             Snel de juiste{" "}
@@ -216,7 +216,7 @@ export default function Home() {
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
-            Vraag Jeroen om hulp
+            Vraag Noor om hulp
           </Link>
           <p className="mt-4 text-sm text-slate-400">
             Geen login · Volledig anoniem · Gratis in de pilotfase
@@ -234,7 +234,7 @@ export default function Home() {
               {
                 n: "1", kleur: "bg-blue-600",
                 titel: "Vertel wat je ziet",
-                tekst: "Beschrijf het gedrag of de situatie van de leerling. Jeroen stelt gerichte doorvragen — één tegelijk.",
+                tekst: "Beschrijf het gedrag of de situatie van de leerling. Noor stelt gerichte doorvragen — één tegelijk.",
               },
               {
                 n: "2", kleur: "bg-blue-600",
@@ -283,7 +283,7 @@ export default function Home() {
       {/* ── Vergelijking ───────────────────────────────────────────────────── */}
       <section className="px-6 py-16 bg-white">
         <div className="max-w-3xl mx-auto">
-          <h2 className="text-2xl font-bold text-slate-800 text-center mb-2">Zonder Jeroen vs. met Jeroen</h2>
+          <h2 className="text-2xl font-bold text-slate-800 text-center mb-2">Zonder Noor vs. met Noor</h2>
           <p className="text-slate-500 text-center mb-10 text-sm">Wat verandert er voor een leerkracht?</p>
           <div className="rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
             <div className="grid grid-cols-2 bg-slate-800 text-white text-sm font-semibold">
@@ -306,18 +306,18 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── Wie is Jeroen ──────────────────────────────────────────────────── */}
+      {/* ── Wie is Noor ──────────────────────────────────────────────────── */}
       <section className="px-6 py-16 bg-blue-600 text-white">
         <div className="max-w-4xl mx-auto">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8">
-            <JeroenAvatar size={88} className="shrink-0" />
+            <NoorAvatar size={88} className="shrink-0" />
             <div>
-              <h2 className="text-2xl font-bold mb-3">Wie is Jeroen?</h2>
+              <h2 className="text-2xl font-bold mb-3">Wie is Noor?</h2>
               <p className="text-blue-100 leading-relaxed mb-4">
-                Jeroen is een AI-assistent getraind als specialist speciaal onderwijs. Hij combineert kennis over ADHD, autisme, dyslexie, angststoornissen, motorische problemen, gedragsproblemen en meer — en koppelt die kennis aan een netwerk van echte experts.
+                Noor is een AI-assistent getraind als specialist speciaal onderwijs. Ze combineert kennis over ADHD, autisme, dyslexie, angststoornissen, motorische problemen, gedragsproblemen en meer — en koppelt die kennis aan een netwerk van echte experts.
               </p>
               <p className="text-blue-100 leading-relaxed mb-6">
-                Hij stelt altijd de juiste vervolgvragen, werkt volledig anoniem en weet precies wanneer hij moet doorverwijzen. Geen diagnoses, geen medisch advies — wel concrete, toepasbare hulp.
+                Ze stelt altijd de juiste vervolgvragen, werkt volledig anoniem en weet precies wanneer ze moet doorverwijzen. Geen diagnoses, geen medisch advies — wel concrete, toepasbare hulp.
               </p>
               <div className="flex flex-wrap gap-2">
                 {["ADHD", "Autisme", "Dyslexie", "Angststoornissen", "Motorische problemen", "Gedragsproblemen", "Aandacht & concentratie", "Sociaal-emotioneel", "Taal & lezen", "Hoogbegaafdheid"].map((tag) => (
@@ -359,8 +359,8 @@ export default function Home() {
       <section className="px-6 py-10 bg-white border-t border-slate-100">
         <div className="max-w-2xl mx-auto text-center">
           <p className="text-xs text-slate-400 leading-relaxed">
-            ⚠️ Jeroen is een AI-assistent en geeft geen medisch of diagnostisch advies.
-            Hij ondersteunt leerkrachten en vervangt geen professionele beoordeling door een arts,
+            ⚠️ Noor is een AI-assistent en geeft geen medisch of diagnostisch advies.
+            Ze ondersteunt leerkrachten en vervangt geen professionele beoordeling door een arts,
             psycholoog of orthopedagoog. Bij twijfel: altijd de IB-er, schoolarts of
             Centrum voor Jeugd en Gezin raadplegen.
           </p>
@@ -372,7 +372,7 @@ export default function Home() {
         <div className="max-w-xl mx-auto">
           <h2 className="text-2xl font-bold text-slate-800 mb-3">Klaar om te starten?</h2>
           <p className="text-slate-500 mb-8 leading-relaxed">
-            Stel je vraag — Jeroen is er meteen. Geen account, geen wachttijd, geen gedoe.
+            Stel je vraag — Noor is er meteen. Geen account, geen wachttijd, geen gedoe.
           </p>
           <Link
             href="/chat"
@@ -381,7 +381,7 @@ export default function Home() {
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
-            Gesprek starten met Jeroen
+            Gesprek starten met Noor
           </Link>
         </div>
       </section>

@@ -6,7 +6,7 @@ export default function JuridischPage() {
       titel: "Nooit een diagnose stellen",
       kleur: "red",
       uitleg:
-        "Jeroen stelt nooit een diagnose bij een kind. Uitspraken als 'dit kind heeft ADHD' of 'dit is autisme' zijn verboden. Alleen een BIG-geregistreerde professional (psychiater, klinisch psycholoog, kinderarts) mag een officiële diagnose stellen.",
+        "Noor stelt nooit een diagnose bij een kind. Uitspraken als 'dit kind heeft ADHD' of 'dit is autisme' zijn verboden. Alleen een BIG-geregistreerde professional (psychiater, klinisch psycholoog, kinderarts) mag een officiële diagnose stellen.",
       toegestaan: [
         '"kan wijzen op kenmerken van…"',
         '"is herkenbaar als…"',
@@ -20,7 +20,7 @@ export default function JuridischPage() {
       titel: "Privacy van het kind",
       kleur: "orange",
       uitleg:
-        "Jeroen vraagt nooit naar de naam, het BSN, het adres of andere directe persoonsgegevens van de leerling. Hij gebruikt altijd neutrale omschrijvingen en slaat geen persoonsgegevens van kinderen op.",
+        "Noor vraagt nooit naar de naam, het BSN, het adres of andere directe persoonsgegevens van de leerling. Ze gebruikt altijd neutrale omschrijvingen en slaat geen persoonsgegevens van kinderen op.",
       toegestaan: ['"de leerling"', '"het kind"', '"jouw leerling"'],
       verboden: ["Naam van het kind opvragen", "BSN of adres vragen", "Persoonsgegevens onthouden"],
     },
@@ -30,7 +30,7 @@ export default function JuridischPage() {
       titel: "Professionals niet vervangen",
       kleur: "yellow",
       uitleg:
-        "Bij twijfel of ernst verwijst Jeroen altijd door naar: de intern begeleider (IB-er), de schoolarts of jeugdarts, de huisarts, of het Centrum voor Jeugd en Gezin (CJG). Scholen hebben zorgplicht. Jeroen is ondersteunend, niet beslissend.",
+        "Bij twijfel of ernst verwijst Noor altijd door naar: de intern begeleider (IB-er), de schoolarts of jeugdarts, de huisarts, of het Centrum voor Jeugd en Gezin (CJG). Scholen hebben zorgplicht. Noor is ondersteunend, niet beslissend.",
       toegestaan: [
         "Doorverwijzen naar IB-er",
         "CJG noemen",
@@ -47,7 +47,7 @@ export default function JuridischPage() {
       titel: "Oudertoestemming voor zorgtrajecten",
       kleur: "blue",
       uitleg:
-        "Wanneer Jeroen doorverwijst naar formele zorg, informeert hij de leerkracht altijd dat voor elk formeel zorgtraject toestemming van ouders of voogd vereist is.",
+        "Wanneer Noor doorverwijst naar formele zorg, informeert ze de leerkracht altijd dat voor elk formeel zorgtraject toestemming van ouders of voogd vereist is.",
       toegestaan: [
         '"Vergeet niet dat ouders toestemming moeten geven"',
         "Leerkracht informeren over ouderrecht",
@@ -64,7 +64,7 @@ export default function JuridischPage() {
       kleur: "red",
       urgent: true,
       uitleg:
-        "Als de leerkracht iets beschrijft dat kan wijzen op kindermishandeling, ernstige verwaarlozing of acute veiligheidsrisico's, verwijst Jeroen ALTIJD en direct naar Veilig Thuis en de IB-er op school. Dit heeft absolute prioriteit boven alles.",
+        "Als de leerkracht iets beschrijft dat kan wijzen op kindermishandeling, ernstige verwaarlozing of acute veiligheidsrisico's, verwijst Noor ALTIJD en direct naar Veilig Thuis en de IB-er op school. Dit heeft absolute prioriteit boven alles.",
       toegestaan: [
         "Veilig Thuis 0800-2000 noemen (24/7 gratis)",
         "Doorverwijzen naar IB-er of vertrouwenspersoon",
@@ -81,7 +81,7 @@ export default function JuridischPage() {
       titel: "Geen medisch of therapeutisch advies",
       kleur: "purple",
       uitleg:
-        "Jeroen geeft geen adviezen over medische behandeling, medicatie of therapie. Hij beschrijft uitsluitend wat leerkrachten in de klas kunnen doen — niet wat artsen of therapeuten moeten doen.",
+        "Noor geeft geen adviezen over medische behandeling, medicatie of therapie. Ze beschrijft uitsluitend wat leerkrachten in de klas kunnen doen — niet wat artsen of therapeuten moeten doen.",
       toegestaan: [
         "Klasadaptaties beschrijven",
         "Pedagogische aanpak voorstellen",
@@ -132,10 +132,10 @@ export default function JuridischPage() {
     <div className="max-w-3xl">
       <h1 className="text-xl font-bold text-slate-800 mb-1">Juridische regels</h1>
       <p className="text-sm text-slate-500 mb-2">
-        Deze zes wettelijke grenzen zijn ingebakken in Jeroen's gedrag. Hij kan ze niet overschrijden.
+        Deze zes wettelijke grenzen zijn ingebakken in Noor's gedrag. Ze kan ze niet overschrijden.
       </p>
       <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-8 text-sm text-blue-800">
-        Deze regels zijn hardcoded in de systeem-instructies van Jeroen. Ze worden niet zichtbaar voor gebruikers, maar bepalen altijd zijn antwoorden.
+        Deze regels zijn hardcoded in de systeem-instructies van Noor. Ze worden niet zichtbaar voor gebruikers, maar bepalen altijd haar antwoorden.
       </div>
 
       <div className="space-y-5">
@@ -176,7 +176,7 @@ export default function JuridischPage() {
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
-                      Jeroen mag wel
+                      Noor mag wel
                     </h3>
                     <ul className="space-y-1">
                       {rule.toegestaan.map((t, i) => (
@@ -192,7 +192,7 @@ export default function JuridischPage() {
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                       </svg>
-                      Jeroen mag nooit
+                      Noor mag nooit
                     </h3>
                     <ul className="space-y-1">
                       {rule.verboden.map((v, i) => (
