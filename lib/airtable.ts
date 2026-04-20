@@ -68,8 +68,13 @@ export async function searchKenniskaarten(
       if (k.trefwoorden.some((kt) => kt.toLowerCase().includes(t))) score += 5;
       if (searchText.includes(t)) score += 2;
     });
-    queryLower.split(" ").forEach((word) => {
-      if (word.length > 3 && searchText.includes(word)) score += 1;
+    queryLower.split(/\s+/).forEach((word) => {
+      if (word.length > 3 && searchText.includes(word)) score += 2;
+      // Partial stem match: handles Dutch/English spelling variants (e.g. prosopagnosia → prosopagnosie)
+      else if (word.length > 7) {
+        const stem = word.slice(0, word.length - 2); // strip last 2 chars
+        if (searchText.split(/\W+/).some((sw) => sw.startsWith(stem))) score += 1;
+      }
     });
     return { kenniskaart: k, score };
   });
