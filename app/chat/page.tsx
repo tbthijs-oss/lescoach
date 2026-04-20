@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { JeroenAvatar } from "@/components/JeroenAvatar";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,14 +48,92 @@ interface ContactForm {
   opmerkingen: string;
 }
 
+// ─── Onboarding screen ────────────────────────────────────────────────────────
+
+function OnboardingScreen({ onStart }: { onStart: (name: string, school: string) => void }) {
+  const [name, setName] = useState("");
+  const [school, setSchool] = useState("");
+  const nameRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    nameRef.current?.focus();
+  }, []);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (name.trim()) {
+      onStart(name.trim(), school.trim());
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-gradient-to-b from-blue-50 to-white px-6 py-10">
+      <div className="w-full max-w-sm">
+        {/* Logo + avatar */}
+        <div className="flex flex-col items-center mb-8">
+          <JeroenAvatar size={80} className="mb-4 drop-shadow-lg" />
+          <h1 className="text-2xl font-bold text-slate-800">Hoi, ik ben Jeroen</h1>
+          <p className="text-slate-500 text-sm mt-2 text-center leading-relaxed">
+            Specialist speciaal onderwijs. Ik help je snel de juiste ondersteuning vinden voor jouw leerling.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5" htmlFor="onboard-name">
+              Wat is jouw naam? <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="onboard-name"
+              ref={nameRef}
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="bijv. Lisa"
+              autoComplete="given-name"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5" htmlFor="onboard-school">
+              Op welke school werk je? <span className="text-slate-400 font-normal">(optioneel)</span>
+            </label>
+            <input
+              id="onboard-school"
+              type="text"
+              value={school}
+              onChange={(e) => setSchool(e.target.value)}
+              placeholder="Naam van de school"
+              autoComplete="organization"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={!name.trim()}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-200 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-xl transition-colors text-base mt-2 shadow-sm"
+          >
+            Start het gesprek →
+          </button>
+        </form>
+
+        <p className="text-xs text-slate-400 text-center mt-6 leading-relaxed">
+          Ik vraag nooit naar persoonlijke gegevens van leerlingen. Jouw gesprek wordt niet opgeslagen.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ─── Typing indicator ─────────────────────────────────────────────────────────
 
 function TypingIndicator() {
   return (
     <div className="flex items-start gap-3">
-      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-        <span className="text-white text-xs font-bold">L</span>
-      </div>
+      <JeroenAvatar size={32} className="shrink-0 mt-0.5" />
       <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
         <div className="flex gap-1 items-center h-5">
           <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:0ms]" />
@@ -86,7 +165,7 @@ function ChipRow({
             key={s}
             disabled={disabled}
             onClick={() => onSelect(s)}
-            className="text-sm bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400 disabled:opacity-40 px-3 py-1.5 rounded-full transition-all font-medium shadow-sm"
+            className="text-sm bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400 active:scale-95 disabled:opacity-40 px-3 py-2 rounded-full transition-all font-medium shadow-sm min-h-[40px]"
           >
             {s}
           </button>
@@ -111,7 +190,7 @@ function KenniskaartCard({ kaart }: { kaart: Kenniskaart }) {
         </div>
         <button
           onClick={() => setOpen(!open)}
-          className="shrink-0 text-blue-600 hover:text-blue-800 text-sm font-medium"
+          className="shrink-0 text-blue-600 hover:text-blue-800 text-sm font-medium min-h-[40px] px-2"
         >
           {open ? "Minder" : "Meer"}
         </button>
@@ -154,7 +233,7 @@ function KenniskaartCard({ kaart }: { kaart: Kenniskaart }) {
       <div className="px-4 py-2 border-t border-slate-100 flex gap-3">
         {kaart.pdfUrl && (
           <a href={kaart.pdfUrl} target="_blank" rel="noopener noreferrer"
-            className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+            className="text-xs text-blue-600 hover:underline flex items-center gap-1 min-h-[36px]">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
@@ -163,7 +242,7 @@ function KenniskaartCard({ kaart }: { kaart: Kenniskaart }) {
         )}
         {kaart.bronUrl && (
           <a href={kaart.bronUrl} target="_blank" rel="noopener noreferrer"
-            className="text-xs text-slate-500 hover:underline flex items-center gap-1">
+            className="text-xs text-slate-500 hover:underline flex items-center gap-1 min-h-[36px]">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
@@ -211,7 +290,7 @@ function ExpertCard({ expert, onContact }: { expert: Expert; onContact: (e: Expe
       </div>
       <button
         onClick={() => onContact(expert)}
-        className="mt-4 w-full bg-white text-blue-700 hover:bg-blue-50 font-semibold text-sm py-2.5 rounded-xl transition-colors"
+        className="mt-4 w-full bg-white text-blue-700 hover:bg-blue-50 active:scale-95 font-semibold text-sm py-3 rounded-xl transition-all min-h-[48px]"
       >
         Vraag advies aan {expert.naam.split(" ")[0]} →
       </button>
@@ -225,14 +304,24 @@ function ExpertModal({
   expert,
   messages,
   kenniskaarten,
+  userName,
+  userSchool,
   onClose,
 }: {
   expert: Expert;
   messages: Message[];
   kenniskaarten: Kenniskaart[];
+  userName: string;
+  userSchool: string;
   onClose: () => void;
 }) {
-  const [form, setForm] = useState<ContactForm>({ naam: "", school: "", email: "", telefoon: "", opmerkingen: "" });
+  const [form, setForm] = useState<ContactForm>({
+    naam: userName,
+    school: userSchool,
+    email: "",
+    telefoon: "",
+    opmerkingen: "",
+  });
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
 
   function update(field: keyof ContactForm, value: string) {
@@ -258,8 +347,8 @@ function ExpertModal({
   const initials = expert.naam.split(" ").filter((w) => w.match(/^[A-Z]/)).slice(0, 2).map((w) => w[0]).join("");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg overflow-hidden max-h-[95dvh] sm:max-h-[90vh] flex flex-col">
 
         {status === "sent" ? (
           <div className="p-10 text-center">
@@ -272,7 +361,7 @@ function ExpertModal({
             <p className="text-slate-500 text-sm mb-6">
               {expert.naam} ontvangt jouw aanvraag met het volledige gespreksverslag en de gevonden kenniskaarten. Je hoort zo snel mogelijk van ons.
             </p>
-            <button onClick={onClose} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors">
+            <button onClick={onClose} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors min-h-[48px]">
               Sluiten
             </button>
           </div>
@@ -284,7 +373,7 @@ function ExpertModal({
                   <h2 className="text-lg font-bold">Vraag advies aan een expert</h2>
                   <p className="text-blue-200 text-sm mt-0.5">Het volledige rapport wordt automatisch meegestuurd</p>
                 </div>
-                <button onClick={onClose} className="text-blue-200 hover:text-white p-1 rounded-lg">
+                <button onClick={onClose} className="text-blue-200 hover:text-white p-2 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -314,7 +403,7 @@ function ExpertModal({
                   </label>
                   <input type="text" required value={form.naam} onChange={(e) => update("naam", e.target.value)}
                     placeholder="Jouw naam"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    className="w-full border border-slate-200 rounded-lg px-3 py-3 text-base text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1.5">
@@ -322,7 +411,7 @@ function ExpertModal({
                   </label>
                   <input type="text" required value={form.school} onChange={(e) => update("school", e.target.value)}
                     placeholder="Naam van de school"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    className="w-full border border-slate-200 rounded-lg px-3 py-3 text-base text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 </div>
               </div>
 
@@ -332,7 +421,7 @@ function ExpertModal({
                 </label>
                 <input type="email" required value={form.email} onChange={(e) => update("email", e.target.value)}
                   placeholder="jouw@school.nl"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  className="w-full border border-slate-200 rounded-lg px-3 py-3 text-base text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
               </div>
 
               <div>
@@ -341,7 +430,7 @@ function ExpertModal({
                 </label>
                 <input type="tel" value={form.telefoon} onChange={(e) => update("telefoon", e.target.value)}
                   placeholder="06 12345678"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  className="w-full border border-slate-200 rounded-lg px-3 py-3 text-base text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
               </div>
 
               <div>
@@ -350,7 +439,7 @@ function ExpertModal({
                 </label>
                 <textarea value={form.opmerkingen} onChange={(e) => update("opmerkingen", e.target.value)}
                   placeholder="Iets wat je wil meegeven…" rows={3}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" />
+                  className="w-full border border-slate-200 rounded-lg px-3 py-3 text-base text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" />
               </div>
 
               {status === "error" && (
@@ -361,16 +450,16 @@ function ExpertModal({
 
               <div className="flex items-center gap-3 pt-1">
                 <button type="submit" disabled={status === "sending"}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold py-3 rounded-xl transition-colors text-sm">
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold py-3.5 rounded-xl transition-colors text-sm min-h-[48px]">
                   {status === "sending" ? "Versturen…" : "Verstuur aanvraag →"}
                 </button>
                 <button type="button" onClick={onClose}
-                  className="px-4 py-3 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors">
+                  className="px-4 py-3.5 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors min-h-[48px]">
                   Annuleren
                 </button>
               </div>
 
-              <p className="text-xs text-center text-slate-400">
+              <p className="text-xs text-center text-slate-400 pb-safe">
                 {expert.naam} ontvangt automatisch het gespreksverslag en de kenniskaarten.
               </p>
             </form>
@@ -384,6 +473,10 @@ function ExpertModal({
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function ChatPage() {
+  const [userName, setUserName] = useState("");
+  const [userSchool, setUserSchool] = useState("");
+  const [onboarded, setOnboarded] = useState(false);
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [kenniskaarten, setKenniskaarten] = useState<Kenniskaart[]>([]);
   const [experts, setExperts] = useState<Expert[]>([]);
@@ -401,27 +494,38 @@ export default function ChatPage() {
   }, [messages, loading, suggestions]);
 
   useEffect(() => {
-    if (!started) {
+    if (onboarded && !started) {
       setStarted(true);
-      startConversation();
+      startConversation(userName, userSchool);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [onboarded]);
 
-  async function startConversation() {
+  function handleOnboardComplete(name: string, school: string) {
+    setUserName(name);
+    setUserSchool(school);
+    setOnboarded(true);
+  }
+
+  async function startConversation(name: string, school: string) {
     setLoading(true);
+    const greeting = school
+      ? `Hallo, ik ben ${name} en ik werk op ${school}. Ik wil graag hulp voor een leerling.`
+      : `Hallo, ik ben ${name}. Ik wil graag hulp voor een leerling.`;
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: [{ role: "user", content: "Hallo, ik wil graag hulp voor een leerling." }],
+          messages: [{ role: "user", content: greeting }],
+          userName: name,
+          userSchool: school,
         }),
       });
       const data = await res.json();
       if (data.message) {
         setMessages([
-          { role: "user", content: "Hallo, ik wil graag hulp voor een leerling." },
+          { role: "user", content: greeting },
           { role: "assistant", content: data.message },
         ]);
         setSuggestions(data.suggestions || []);
@@ -437,7 +541,7 @@ export default function ChatPage() {
     const textToSend = (text ?? input).trim();
     if (!textToSend || loading) return;
 
-    setSuggestions([]); // clear chips when sending
+    setSuggestions([]);
     const newMessages: Message[] = [...messages, { role: "user", content: textToSend }];
     setMessages(newMessages);
     setInput("");
@@ -447,7 +551,7 @@ export default function ChatPage() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ messages: newMessages, userName, userSchool }),
       });
       const data = await res.json();
 
@@ -487,36 +591,44 @@ export default function ChatPage() {
     setStarted(false);
     setDone(false);
     setSelectedExpert(null);
+    setOnboarded(false);
   }
 
-  // Default to first expert if none matched
+  // Show onboarding if not yet completed
+  if (!onboarded) {
+    return <OnboardingScreen onStart={handleOnboardComplete} />;
+  }
+
   const displayExperts = experts.length > 0 ? experts : [];
 
   return (
-    <div className="flex flex-col h-screen bg-slate-50">
+    <div className="flex flex-col h-[100dvh] bg-slate-50">
       {/* Expert modal */}
       {selectedExpert && (
         <ExpertModal
           expert={selectedExpert}
           messages={messages}
           kenniskaarten={kenniskaarten}
+          userName={userName}
+          userSchool={userSchool}
           onClose={() => setSelectedExpert(null)}
         />
       )}
 
       {/* Header */}
-      <header className="bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between shrink-0">
+      <header className="bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between shrink-0 safe-top">
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <span className="text-white text-sm font-bold">L</span>
+          <JeroenAvatar size={32} />
+          <div>
+            <span className="text-slate-800 font-semibold text-sm">Jeroen</span>
+            <span className="text-slate-400 text-xs block leading-tight">LesCoach specialist</span>
           </div>
-          <span className="text-slate-800 font-semibold">LesCoach</span>
         </Link>
         <div className="flex items-center gap-2">
           {done && displayExperts.length > 0 && (
             <button
               onClick={() => setSelectedExpert(displayExperts[0])}
-              className="hidden sm:flex items-center gap-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg transition-colors"
+              className="hidden sm:flex items-center gap-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded-lg transition-colors min-h-[40px]"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -524,14 +636,21 @@ export default function ChatPage() {
               Expert inschakelen
             </button>
           )}
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-100 px-2 py-1.5 rounded-lg">
+            <div className="w-5 h-5 bg-slate-300 rounded-full flex items-center justify-center text-slate-600 text-xs font-bold">
+              {userName[0]?.toUpperCase()}
+            </div>
+            <span className="hidden sm:inline">{userName}</span>
+          </div>
           <button
             onClick={resetChat}
-            className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+            className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors min-h-[40px]"
+            title="Nieuw gesprek"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Nieuw gesprek
+            <span className="hidden sm:inline">Nieuw gesprek</span>
           </button>
         </div>
       </header>
@@ -546,22 +665,20 @@ export default function ChatPage() {
           <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
             {messages.map((msg, i) => {
               const isLast = i === messages.length - 1;
+              // hide the auto-generated greeting from the user (first message)
+              if (i === 0 && msg.role === "user") return null;
               return (
                 <div key={i} className="space-y-2">
                   <div className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
                     {msg.role === "assistant" && (
-                      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-                        <span className="text-white text-xs font-bold">L</span>
-                      </div>
+                      <JeroenAvatar size={32} className="shrink-0 mt-0.5" />
                     )}
                     {msg.role === "user" && (
-                      <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-                        <svg className="w-4 h-4 text-slate-500" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
-                        </svg>
+                      <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-slate-600 font-bold text-sm">
+                        {userName[0]?.toUpperCase()}
                       </div>
                     )}
-                    <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
+                    <div className={`max-w-[82%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
                       msg.role === "assistant"
                         ? "bg-white border border-slate-200 text-slate-800 rounded-tl-sm"
                         : "bg-blue-600 text-white rounded-tr-sm"
@@ -605,12 +722,12 @@ export default function ChatPage() {
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => setSelectedExpert(displayExperts[0])}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors">
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-3 rounded-lg transition-colors min-h-[48px]">
                     Expert inschakelen
                   </button>
                   <button onClick={resetChat}
-                    className="px-4 py-2.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200">
-                    Nieuw gesprek
+                    className="px-4 py-3 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 min-h-[48px]">
+                    Nieuw
                   </button>
                 </div>
               </div>
@@ -618,7 +735,7 @@ export default function ChatPage() {
           )}
 
           {/* Input */}
-          <div className="shrink-0 bg-white border-t border-slate-100 px-4 py-3">
+          <div className="shrink-0 bg-white border-t border-slate-100 px-4 py-3 pb-safe">
             <div className="flex items-end gap-2 max-w-3xl mx-auto">
               <textarea
                 ref={inputRef}
@@ -628,20 +745,20 @@ export default function ChatPage() {
                 placeholder={done ? "Stel een vervolgvraag…" : "Typ je bericht…"}
                 rows={1}
                 disabled={loading}
-                className="flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 max-h-40 overflow-y-auto"
+                className="flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 max-h-40 overflow-y-auto"
                 style={{ lineHeight: "1.5" }}
               />
               <button
                 onClick={() => sendMessage()}
                 disabled={!input.trim() || loading}
-                className="w-10 h-10 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 text-white rounded-xl flex items-center justify-center transition-colors shrink-0"
+                className="w-11 h-11 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 text-white rounded-xl flex items-center justify-center transition-colors shrink-0 min-h-[44px] min-w-[44px]"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.269 20.876L5.999 12zm0 0h7.5" />
                 </svg>
               </button>
             </div>
-            <p className="text-center text-xs text-slate-400 mt-2">
+            <p className="text-center text-xs text-slate-400 mt-2 hidden sm:block">
               Enter om te versturen · Shift+Enter voor nieuwe regel
             </p>
           </div>

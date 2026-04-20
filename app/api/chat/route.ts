@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { searchKenniskaarten, matchExperts } from "@/lib/airtable";
-import { SYSTEM_PROMPT } from "@/lib/systemPrompt";
+import { buildSystemPrompt } from "@/lib/systemPrompt";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -24,7 +24,8 @@ function parseSuggestions(text: string): { message: string; suggestions: string[
 
 export async function POST(request: NextRequest) {
   try {
-    const { messages }: { messages: Message[] } = await request.json();
+    const { messages, userName, userSchool }: { messages: Message[]; userName?: string; userSchool?: string } = await request.json();
+    const systemPrompt = buildSystemPrompt(userName, userSchool);
 
     if (!messages || messages.length === 0) {
       return NextResponse.json({ error: "Geen berichten meegegeven" }, { status: 400 });
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 1500,
-      system: SYSTEM_PROMPT,
+      system: systemPrompt,
       tools,
       messages,
     });
@@ -113,7 +114,7 @@ export async function POST(request: NextRequest) {
         const finalResponse = await client.messages.create({
           model: "claude-sonnet-4-6",
           max_tokens: 2000,
-          system: SYSTEM_PROMPT,
+          system: systemPrompt,
           tools,
           messages: messagesWithTool,
         });
