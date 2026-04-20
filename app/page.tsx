@@ -176,10 +176,7 @@ export default function Home() {
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <NoorAvatar size={32} />
-            <div>
-              <span className="text-slate-800 font-semibold text-sm">LesCoach</span>
-              <span className="text-slate-400 text-xs block leading-tight">door Jeroen Hendricks</span>
-            </div>
+            <span className="text-slate-800 font-semibold text-sm">LesCoach</span>
           </div>
           <Link
             href="/chat"
