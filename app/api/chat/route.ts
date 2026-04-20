@@ -133,6 +133,35 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Claude gave a text response instead of calling the tool.
+    // If we already have ≥5 exchanges, force the tool call ourselves.
+    const userTurns = messages.filter((m) => m.role === "user").length;
+    if (userTurns >= 5) {
+      // Extract a best-guess search term from the conversation
+      const allUserText = messages
+        .filter((m) => m.role === "user")
+        .map((m) => m.content)
+        .join(" ");
+      const zoekterm = allUserText.slice(0, 80); // rough heuristic
+
+      const [kenniskaarten, experts] = await Promise.all([
+        searchKenniskaarten(zoekterm, []),
+        matchExperts([zoekterm]),
+      ]);
+
+      const textContent2 = response.content.find((b) => b.type === "text");
+      const rawText2 = textContent2?.type === "text" ? textContent2.text : "";
+      const { message: msg2 } = parseSuggestions(rawText2);
+
+      return NextResponse.json({
+        message: msg2,
+        suggestions: [],
+        kenniskaarten,
+        experts,
+        done: true,
+      });
+    }
+
     // Regular text response (intake phase) — parse chip suggestions
     const textContent = response.content.find((b) => b.type === "text");
     const rawText = textContent?.type === "text" ? textContent.text : "";

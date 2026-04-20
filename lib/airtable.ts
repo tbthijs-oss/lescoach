@@ -74,11 +74,19 @@ export async function searchKenniskaarten(
     return { kenniskaart: k, score };
   });
 
-  return scored
+  const matched = scored
     .filter((s) => s.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 3)
     .map((s) => s.kenniskaart);
+
+  // Fallback: if nothing matched, return the top 3 by alphabetical order
+  // so the conversation always produces some result
+  if (matched.length === 0) {
+    return all.slice(0, 3);
+  }
+
+  return matched;
 }
 
 // ─── Expert ──────────────────────────────────────────────────────────────────

@@ -560,12 +560,14 @@ export default function ChatPage() {
       }
       setSuggestions(data.suggestions || []);
 
-      if (data.kenniskaarten?.length > 0) {
-        setKenniskaarten(data.kenniskaarten);
+      if (data.done) {
         setDone(true);
-      }
-      if (data.experts?.length > 0) {
-        setExperts(data.experts);
+        if (data.kenniskaarten?.length > 0) {
+          setKenniskaarten(data.kenniskaarten);
+        }
+        if (data.experts?.length > 0) {
+          setExperts(data.experts);
+        }
       }
     } catch {
       setMessages([...newMessages, { role: "assistant", content: "Sorry, er is iets misgegaan. Probeer het opnieuw." }]);
