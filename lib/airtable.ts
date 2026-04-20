@@ -20,18 +20,18 @@ function parseKenniskaartRecord(record: any): Kenniskaart {
   const f = record.fields;
   return {
     id: record.id,
-    titel: f["fld3DLuFhoAMOUEph"] || "",
-    categorie: f["fldWOw0vqNrNMTkip"]?.name || f["fldWOw0vqNrNMTkip"] || "",
-    samenvatting: f["fldkIgAECHweJb5PW"] || "",
-    watIsHet: f["fldpHHTnFK9uPv4Qv"] || "",
-    gevolgen: f["fldGMI6li2GD9O9Bk"] || "",
-    tips: f["fldPq0TsXzIEDMdiL"] || "",
+    titel: f["Titel"] || "",
+    categorie: f["Categorie"] || "",
+    samenvatting: f["Samenvatting"] || "",
+    watIsHet: f["Wat is het"] || "",
+    gevolgen: f["Gevolgen voor schoolvaardigheden"] || "",
+    tips: f["Tips voor begeleiding"] || "",
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    trefwoorden: (f["fld39hrdXpTYZF1NH"] || []).map((t: any) =>
+    trefwoorden: (f["Trefwoorden"] || []).map((t: any) =>
       typeof t === "string" ? t : t.name
     ),
-    pdfUrl: f["fldNo7eNNabDY2xSH"] || "",
-    bronUrl: f["fldpfT1FwSVT4qNrK"] || "",
+    pdfUrl: f["PDF URL"] || "",
+    bronUrl: f["Bronpagina URL"] || "",
   };
 }
 
@@ -114,24 +114,24 @@ const EXPERTS_URL = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseExpertRecord(record: any): Expert {
   const f = record.fields;
-  const specialisatiesRaw: string = f["fld0q7vkM7K0YfnBw"] || "";
+  const specialisatiesRaw: string = f["Specialisaties"] || "";
   return {
     id: record.id,
-    naam: f["fldlIpS7xTWze43gJ"] || "",
-    titel: f["fldY7YAV7ZIsHpIu5"] || "",
-    bio: f["fldBMGbBncFIp5tPn"] || "",
+    naam: f["Naam"] || "",
+    titel: f["Titel"] || "",
+    bio: f["Bio"] || "",
     specialisaties: specialisatiesRaw
       .split(",")
       .map((s) => s.trim().toLowerCase())
       .filter(Boolean),
-    email: f["fld1PlJECsJv70w8G"] || "",
-    telefoon: f["fldgCrSlOac82CwTB"] || "",
-    linkedin: f["fldx30ctWow9T40IN"] || "",
-    fotoUrl: f["fldsdq91TXomWNpWZ"] || "",
-    beschikbaar: f["flduj5f58FtEHZP6k"] === true,
-    ervaringsjaren: f["fldAX1Acb9wJu2p6F"] || 0,
-    regio: f["fldaePVPISVXp943r"] || "",
-    taal: f["fldv4OaGVBlmdRQ8M"] || [],
+    email: f["Email"] || "",
+    telefoon: f["Telefoon"] || "",
+    linkedin: f["LinkedIn"] || "",
+    fotoUrl: f["Foto URL"] || f["FotoUrl"] || "",
+    beschikbaar: f["Beschikbaar"] === true,
+    ervaringsjaren: f["Ervaringsjaren"] || 0,
+    regio: f["Regio"] || "",
+    taal: f["Taal"] || [],
   };
 }
 
@@ -143,7 +143,7 @@ export async function getAllExperts(): Promise<Expert[]> {
   if (expertsCache && now - expertsCacheTime < 3600_000) return expertsCache;
 
   const response = await fetch(
-    `${EXPERTS_URL}?filterByFormula={Beschikbaar}=1`,
+    `${EXPERTS_URL}?filterByFormula={Beschikbaar}`,
     {
       headers: { Authorization: `Bearer ${process.env.AIRTABLE_API_TOKEN}` },
     }

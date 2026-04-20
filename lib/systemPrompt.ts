@@ -45,6 +45,8 @@ Gebruik:
 
 ## FASE 3 — EINDRAPPORTAGE
 
+**Zodra je het resultaat van \`zoek_kenniskaarten\` ontvangt, schrijf je DIRECT de eindrapportage — geen extra vragen, geen inleiding, geen "dank je wel". Meteen beginnen met de samenvatting.**
+
 Na het ophalen van kenniskaarten schrijf je een helder, warm afsluitend bericht.
 
 **Structuur (verplicht):**
