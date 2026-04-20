@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { searchKenniskaarten, matchExperts } from "@/lib/airtable";
-import { buildSystemPrompt } from "@/lib/systemPrompt";
+import { buildSystemPrompt, buildPhase3Prompt } from "@/lib/systemPrompt";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -102,25 +102,19 @@ export async function POST(request: NextRequest) {
                     gevolgen: k.gevolgen,
                     tips: k.tips,
                     trefwoorden: k.trefwoorden,
-                    pdfUrl: k.pdfUrl,
-                    bronUrl: k.bronUrl,
                   })),
                 }),
-              },
-              {
-                type: "text",
-                text: "Schrijf nu DIRECT de eindrapportage (Fase 3). Geen vragen meer — begin meteen met de samenvatting van wat je gehoord hebt.",
               },
             ],
           },
         ];
 
+        // Use a focused Phase 3-only system prompt so Claude doesn't fall back to intake mode
+        const phase3Prompt = buildPhase3Prompt(userName, userSchool);
         const finalResponse = await client.messages.create({
           model: "claude-sonnet-4-6",
           max_tokens: 2000,
-          system: systemPrompt,
-          tool_choice: { type: "none" }, // force text-only response for end report
-          tools,
+          system: phase3Prompt,
           messages: messagesWithTool,
         });
 
@@ -139,27 +133,48 @@ export async function POST(request: NextRequest) {
     }
 
     // Claude gave a text response instead of calling the tool.
-    // If we already have ≥5 exchanges, force the tool call ourselves.
+    // If we already have ≥4 exchanges, force the search and end report ourselves.
     const userTurns = messages.filter((m) => m.role === "user").length;
-    if (userTurns >= 5) {
-      // Extract a best-guess search term from the conversation
+    if (userTurns >= 4) {
+      // Use the first user message (situation description) as primary search term
+      const firstUserMessage = messages.find((m) => m.role === "user")?.content || "";
       const allUserText = messages
         .filter((m) => m.role === "user")
         .map((m) => m.content)
         .join(" ");
-      const zoekterm = allUserText.slice(0, 80); // rough heuristic
+      const zoekterm = firstUserMessage.slice(0, 120);
+      // Extract keywords: all individual words >4 chars from all user messages
+      const trefwoorden = Array.from(
+        new Set(allUserText.split(/\s+/).filter((w) => w.length > 4))
+      ).slice(0, 8);
 
       const [kenniskaarten, experts] = await Promise.all([
-        searchKenniskaarten(zoekterm, []),
-        matchExperts([zoekterm]),
+        searchKenniskaarten(zoekterm, trefwoorden),
+        matchExperts([zoekterm, ...trefwoorden]),
       ]);
 
-      const textContent2 = response.content.find((b) => b.type === "text");
-      const rawText2 = textContent2?.type === "text" ? textContent2.text : "";
-      const { message: msg2 } = parseSuggestions(rawText2);
+      // Build a Phase 3 end report rather than using Claude's intake question
+      const phase3Prompt = buildPhase3Prompt(userName, userSchool);
+      const fallbackMessages: Anthropic.MessageParam[] = [
+        ...messages,
+        {
+          role: "user" as const,
+          content: `Schrijf nu de eindrapportage. Gevonden kenniskaarten: ${JSON.stringify(
+            kenniskaarten.map((k) => ({ titel: k.titel, samenvatting: k.samenvatting }))
+          )}`,
+        },
+      ];
+      const fallbackResponse = await client.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 2000,
+        system: phase3Prompt,
+        messages: fallbackMessages,
+      });
+      const fallbackText = fallbackResponse.content.find((b) => b.type === "text");
+      const fallbackMsg = fallbackText?.type === "text" ? fallbackText.text : "";
 
       return NextResponse.json({
-        message: msg2,
+        message: fallbackMsg,
         suggestions: [],
         kenniskaarten,
         experts,
