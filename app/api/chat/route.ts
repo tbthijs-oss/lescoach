@@ -1,15 +1,25 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
-import { searchKenniskaarten } from "@/lib/airtable";
+import { searchKenniskaarten, matchExperts } from "@/lib/airtable";
 import { SYSTEM_PROMPT } from "@/lib/systemPrompt";
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 interface Message {
   role: "user" | "assistant";
   content: string;
+}
+
+/** Strip [Suggesties: ...] marker from Claude's text and return chips separately */
+function parseSuggestions(text: string): { message: string; suggestions: string[] } {
+  const match = text.match(/\[Suggesties:\s*([^\]]+)\]/i);
+  if (!match) return { message: text, suggestions: [] };
+  const suggestions = match[1]
+    .split("|")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const message = text.replace(match[0], "").trim();
+  return { message, suggestions };
 }
 
 export async function POST(request: NextRequest) {
@@ -20,7 +30,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Geen berichten meegegeven" }, { status: 400 });
     }
 
-    // Tool definition for searching kenniskaarten
     const tools: Anthropic.Tool[] = [
       {
         name: "zoek_kenniskaarten",
@@ -55,7 +64,7 @@ export async function POST(request: NextRequest) {
       messages,
     });
 
-    // Handle tool use
+    // Handle tool use (Phase 2 → 3 transition)
     if (response.stop_reason === "tool_use") {
       const toolUseBlock = response.content.find((b) => b.type === "tool_use");
 
@@ -65,13 +74,14 @@ export async function POST(request: NextRequest) {
           trefwoorden?: string[];
         };
 
-        // Search kenniskaarten
-        const kenniskaarten = await searchKenniskaarten(
-          input.zoekterm,
-          input.trefwoorden || []
-        );
+        const usedTrefwoorden = input.trefwoorden || [];
 
-        // Continue conversation with tool result
+        // Search kenniskaarten and match experts in parallel
+        const [kenniskaarten, experts] = await Promise.all([
+          searchKenniskaarten(input.zoekterm, usedTrefwoorden),
+          matchExperts([input.zoekterm, ...usedTrefwoorden]),
+        ]);
+
         const messagesWithTool: Anthropic.MessageParam[] = [
           ...messages,
           { role: "assistant", content: response.content },
@@ -109,18 +119,30 @@ export async function POST(request: NextRequest) {
         });
 
         const textContent = finalResponse.content.find((b) => b.type === "text");
+        const rawText = textContent?.type === "text" ? textContent.text : "";
+        const { message } = parseSuggestions(rawText); // no chips in results phase
+
         return NextResponse.json({
-          message: textContent?.type === "text" ? textContent.text : "",
+          message,
+          suggestions: [], // no chips after analysis
           kenniskaarten,
+          experts,
+          done: true,
         });
       }
     }
 
-    // Regular text response
+    // Regular text response (intake phase) — parse chip suggestions
     const textContent = response.content.find((b) => b.type === "text");
+    const rawText = textContent?.type === "text" ? textContent.text : "";
+    const { message, suggestions } = parseSuggestions(rawText);
+
     return NextResponse.json({
-      message: textContent?.type === "text" ? textContent.text : "",
+      message,
+      suggestions,
       kenniskaarten: [],
+      experts: [],
+      done: false,
     });
   } catch (error) {
     console.error("Chat API error:", error);

@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 interface Kenniskaart {
   id: string;
   titel: string;
@@ -14,6 +16,22 @@ interface Kenniskaart {
   trefwoorden: string[];
   pdfUrl: string;
   bronUrl: string;
+}
+
+interface Expert {
+  id: string;
+  naam: string;
+  titel: string;
+  bio: string;
+  specialisaties: string[];
+  email: string;
+  telefoon: string;
+  linkedin: string;
+  fotoUrl: string;
+  beschikbaar: boolean;
+  ervaringsjaren: number;
+  regio: string;
+  taal: string[];
 }
 
 interface Message {
@@ -29,7 +47,8 @@ interface ContactForm {
   opmerkingen: string;
 }
 
-// ─── Typing indicator ────────────────────────────────────────────────────────
+// ─── Typing indicator ─────────────────────────────────────────────────────────
+
 function TypingIndicator() {
   return (
     <div className="flex items-start gap-3">
@@ -47,10 +66,40 @@ function TypingIndicator() {
   );
 }
 
+// ─── Chip suggestions ─────────────────────────────────────────────────────────
+
+function ChipRow({
+  suggestions,
+  onSelect,
+  disabled,
+}: {
+  suggestions: string[];
+  onSelect: (s: string) => void;
+  disabled: boolean;
+}) {
+  if (!suggestions.length) return null;
+  return (
+    <div className="flex items-start gap-3 pl-11">
+      <div className="flex flex-wrap gap-2">
+        {suggestions.map((s) => (
+          <button
+            key={s}
+            disabled={disabled}
+            onClick={() => onSelect(s)}
+            className="text-sm bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400 disabled:opacity-40 px-3 py-1.5 rounded-full transition-all font-medium shadow-sm"
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Kenniskaart card ─────────────────────────────────────────────────────────
+
 function KenniskaartCard({ kaart }: { kaart: Kenniskaart }) {
   const [open, setOpen] = useState(false);
-
   return (
     <div className="bg-white border border-blue-100 rounded-2xl overflow-hidden shadow-sm">
       <div className="px-4 py-3 bg-blue-50 flex items-start justify-between gap-3">
@@ -76,37 +125,26 @@ function KenniskaartCard({ kaart }: { kaart: Kenniskaart }) {
         <div className="border-t border-slate-100 px-4 py-3 space-y-4">
           {kaart.watIsHet && (
             <div>
-              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                Wat is het?
-              </h4>
+              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Wat is het?</h4>
               <p className="text-sm text-slate-700 leading-relaxed">{kaart.watIsHet}</p>
             </div>
           )}
           {kaart.gevolgen && (
             <div>
-              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                Gevolgen in de klas
-              </h4>
+              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Gevolgen in de klas</h4>
               <p className="text-sm text-slate-700 leading-relaxed">{kaart.gevolgen}</p>
             </div>
           )}
           {kaart.tips && (
             <div>
-              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                Tips voor de leerkracht
-              </h4>
+              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Tips voor de leerkracht</h4>
               <p className="text-sm text-slate-700 leading-relaxed">{kaart.tips}</p>
             </div>
           )}
           {kaart.trefwoorden.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {kaart.trefwoorden.map((t) => (
-                <span
-                  key={t}
-                  className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full"
-                >
-                  {t}
-                </span>
+                <span key={t} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{t}</span>
               ))}
             </div>
           )}
@@ -115,12 +153,8 @@ function KenniskaartCard({ kaart }: { kaart: Kenniskaart }) {
 
       <div className="px-4 py-2 border-t border-slate-100 flex gap-3">
         {kaart.pdfUrl && (
-          <a
-            href={kaart.pdfUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-blue-600 hover:underline flex items-center gap-1"
-          >
+          <a href={kaart.pdfUrl} target="_blank" rel="noopener noreferrer"
+            className="text-xs text-blue-600 hover:underline flex items-center gap-1">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
@@ -128,12 +162,8 @@ function KenniskaartCard({ kaart }: { kaart: Kenniskaart }) {
           </a>
         )}
         {kaart.bronUrl && (
-          <a
-            href={kaart.bronUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-slate-500 hover:underline flex items-center gap-1"
-          >
+          <a href={kaart.bronUrl} target="_blank" rel="noopener noreferrer"
+            className="text-xs text-slate-500 hover:underline flex items-center gap-1">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
@@ -145,23 +175,64 @@ function KenniskaartCard({ kaart }: { kaart: Kenniskaart }) {
   );
 }
 
+// ─── Expert card ──────────────────────────────────────────────────────────────
+
+function ExpertCard({ expert, onContact }: { expert: Expert; onContact: (e: Expert) => void }) {
+  const initials = expert.naam
+    .split(" ")
+    .filter((w) => w.match(/^[A-Z]/))
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("");
+
+  return (
+    <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-5 text-white shadow-lg">
+      <div className="flex items-start gap-4">
+        {expert.fotoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={expert.fotoUrl} alt={expert.naam}
+            className="w-12 h-12 rounded-full object-cover shrink-0 border-2 border-white/30" />
+        ) : (
+          <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center shrink-0 text-white font-bold text-lg">
+            {initials || expert.naam[0]}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-base">{expert.naam}</div>
+          <div className="text-blue-200 text-xs mt-0.5">{expert.titel}</div>
+          {expert.ervaringsjaren > 0 && (
+            <div className="text-blue-200 text-xs mt-0.5">{expert.ervaringsjaren} jaar ervaring</div>
+          )}
+          <p className="text-blue-100 text-xs mt-2 leading-relaxed line-clamp-3">{expert.bio}</p>
+          {expert.regio && (
+            <div className="text-blue-200 text-xs mt-1.5">📍 {expert.regio}</div>
+          )}
+        </div>
+      </div>
+      <button
+        onClick={() => onContact(expert)}
+        className="mt-4 w-full bg-white text-blue-700 hover:bg-blue-50 font-semibold text-sm py-2.5 rounded-xl transition-colors"
+      >
+        Vraag advies aan {expert.naam.split(" ")[0]} →
+      </button>
+    </div>
+  );
+}
+
 // ─── Expert contact modal ─────────────────────────────────────────────────────
+
 function ExpertModal({
+  expert,
   messages,
   kenniskaarten,
   onClose,
 }: {
+  expert: Expert;
   messages: Message[];
   kenniskaarten: Kenniskaart[];
   onClose: () => void;
 }) {
-  const [form, setForm] = useState<ContactForm>({
-    naam: "",
-    school: "",
-    email: "",
-    telefoon: "",
-    opmerkingen: "",
-  });
+  const [form, setForm] = useState<ContactForm>({ naam: "", school: "", email: "", telefoon: "", opmerkingen: "" });
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
 
   function update(field: keyof ContactForm, value: string) {
@@ -175,20 +246,21 @@ function ExpertModal({
       const res = await fetch("/api/contact-expert", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages, kenniskaarten, contact: form }),
+        body: JSON.stringify({ messages, kenniskaarten, contact: form, expert }),
       });
-      if (!res.ok) throw new Error("Fout bij versturen");
+      if (!res.ok) throw new Error();
       setStatus("sent");
     } catch {
       setStatus("error");
     }
   }
 
+  const initials = expert.naam.split(" ").filter((w) => w.match(/^[A-Z]/)).slice(0, 2).map((w) => w[0]).join("");
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
 
-        {/* Success state */}
         {status === "sent" ? (
           <div className="p-10 text-center">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -198,76 +270,59 @@ function ExpertModal({
             </div>
             <h2 className="text-xl font-bold text-slate-800 mb-2">Aanvraag verstuurd!</h2>
             <p className="text-slate-500 text-sm mb-6">
-              Jeroen Hendricks ontvangt jouw aanvraag samen met het volledige gespreksverslag en de gevonden kenniskaarten. Hij neemt zo snel mogelijk contact met je op.
+              {expert.naam} ontvangt jouw aanvraag met het volledige gespreksverslag en de gevonden kenniskaarten. Je hoort zo snel mogelijk van ons.
             </p>
-            <button
-              onClick={onClose}
-              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors"
-            >
+            <button onClick={onClose} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors">
               Sluiten
             </button>
           </div>
         ) : (
           <>
-            {/* Header */}
-            <div className="px-6 py-5 bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+            <div className="px-6 py-5 bg-gradient-to-r from-blue-600 to-blue-700 text-white shrink-0">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-bold">Vraag advies aan een expert</h2>
-                  <p className="text-blue-200 text-sm mt-0.5">
-                    Jeroen ontvangt jouw volledige rapport automatisch
-                  </p>
+                  <p className="text-blue-200 text-sm mt-0.5">Het volledige rapport wordt automatisch meegestuurd</p>
                 </div>
-                <button
-                  onClick={onClose}
-                  className="text-blue-200 hover:text-white p-1 rounded-lg"
-                >
+                <button onClick={onClose} className="text-blue-200 hover:text-white p-1 rounded-lg">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
-
-              {/* Expert mini-profile */}
               <div className="mt-4 flex items-center gap-3 bg-white/10 rounded-xl px-4 py-3">
-                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center shrink-0 text-white font-bold">
-                  JH
-                </div>
+                {expert.fotoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={expert.fotoUrl} alt={expert.naam} className="w-10 h-10 rounded-full object-cover border border-white/30 shrink-0" />
+                ) : (
+                  <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center shrink-0 text-white font-bold">
+                    {initials || expert.naam[0]}
+                  </div>
+                )}
                 <div>
-                  <div className="text-sm font-semibold text-white">Jeroen Hendricks</div>
-                  <div className="text-xs text-blue-200">Specialist Speciaal Onderwijs</div>
+                  <div className="text-sm font-semibold text-white">{expert.naam}</div>
+                  <div className="text-xs text-blue-200">{expert.titel}</div>
                 </div>
               </div>
             </div>
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1.5">
                     Naam <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={form.naam}
-                    onChange={(e) => update("naam", e.target.value)}
+                  <input type="text" required value={form.naam} onChange={(e) => update("naam", e.target.value)}
                     placeholder="Jouw naam"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1.5">
                     School <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={form.school}
-                    onChange={(e) => update("school", e.target.value)}
+                  <input type="text" required value={form.school} onChange={(e) => update("school", e.target.value)}
                     placeholder="Naam van de school"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 </div>
               </div>
 
@@ -275,69 +330,48 @@ function ExpertModal({
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">
                   E-mailadres <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="email"
-                  required
-                  value={form.email}
-                  onChange={(e) => update("email", e.target.value)}
+                <input type="email" required value={form.email} onChange={(e) => update("email", e.target.value)}
                   placeholder="jouw@school.nl"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                  Telefoonnummer{" "}
-                  <span className="text-slate-400 font-normal">(optioneel)</span>
+                  Telefoonnummer <span className="text-slate-400 font-normal">(optioneel)</span>
                 </label>
-                <input
-                  type="tel"
-                  value={form.telefoon}
-                  onChange={(e) => update("telefoon", e.target.value)}
+                <input type="tel" value={form.telefoon} onChange={(e) => update("telefoon", e.target.value)}
                   placeholder="06 12345678"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                  Aanvullende opmerkingen{" "}
-                  <span className="text-slate-400 font-normal">(optioneel)</span>
+                  Aanvullende opmerkingen <span className="text-slate-400 font-normal">(optioneel)</span>
                 </label>
-                <textarea
-                  value={form.opmerkingen}
-                  onChange={(e) => update("opmerkingen", e.target.value)}
-                  placeholder="Iets wat je wil meegeven aan Jeroen…"
-                  rows={3}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                />
+                <textarea value={form.opmerkingen} onChange={(e) => update("opmerkingen", e.target.value)}
+                  placeholder="Iets wat je wil meegeven…" rows={3}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" />
               </div>
 
               {status === "error" && (
                 <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
-                  Er is iets misgegaan. Probeer het opnieuw of neem direct contact op.
+                  Er is iets misgegaan. Probeer opnieuw of neem direct contact op via {expert.email}.
                 </p>
               )}
 
               <div className="flex items-center gap-3 pt-1">
-                <button
-                  type="submit"
-                  disabled={status === "sending"}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold py-3 rounded-xl transition-colors text-sm"
-                >
+                <button type="submit" disabled={status === "sending"}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold py-3 rounded-xl transition-colors text-sm">
                   {status === "sending" ? "Versturen…" : "Verstuur aanvraag →"}
                 </button>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-3 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
-                >
+                <button type="button" onClick={onClose}
+                  className="px-4 py-3 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors">
                   Annuleren
                 </button>
               </div>
 
               <p className="text-xs text-center text-slate-400">
-                Jeroen ontvangt jouw gespreksverslag en de gevonden kenniskaarten.
+                {expert.naam} ontvangt automatisch het gespreksverslag en de kenniskaarten.
               </p>
             </form>
           </>
@@ -347,80 +381,24 @@ function ExpertModal({
   );
 }
 
-// ─── Expert CTA card (in results panel) ──────────────────────────────────────
-function ExpertCard({ onContact }: { onContact: () => void }) {
-  return (
-    <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-5 text-white shadow-lg">
-      <div className="flex items-start gap-4">
-        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center shrink-0 text-white font-bold text-lg">
-          JH
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="font-bold text-base">Jeroen Hendricks</div>
-          <div className="text-blue-200 text-xs mt-0.5">Specialist Speciaal Onderwijs</div>
-          <p className="text-blue-100 text-xs mt-2 leading-relaxed">
-            Meer dan 10 jaar ervaring in het begeleiden van leerlingen en leerkrachten in het speciaal onderwijs.
-          </p>
-        </div>
-      </div>
-      <button
-        onClick={onContact}
-        className="mt-4 w-full bg-white text-blue-700 hover:bg-blue-50 font-semibold text-sm py-2.5 rounded-xl transition-colors"
-      >
-        Vraag advies aan Jeroen →
-      </button>
-    </div>
-  );
-}
-
-// ─── Results CTA banner (in chat area, mobile) ────────────────────────────────
-function ResultsBanner({ onContact, onReset }: { onContact: () => void; onReset: () => void }) {
-  return (
-    <div className="mx-4 mb-4 bg-green-50 border border-green-200 rounded-2xl p-4">
-      <div className="flex items-center gap-2 mb-2">
-        <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shrink-0">
-          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-        <span className="text-sm font-semibold text-green-800">Analyse klaar</span>
-      </div>
-      <p className="text-xs text-green-700 mb-3">
-        Bekijk de kenniskaarten rechtsboven of neem contact op met een expert voor persoonlijk advies.
-      </p>
-      <div className="flex gap-2">
-        <button
-          onClick={onContact}
-          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors"
-        >
-          Expert inschakelen
-        </button>
-        <button
-          onClick={onReset}
-          className="px-4 py-2.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
-        >
-          Nieuw gesprek
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // ─── Main page ────────────────────────────────────────────────────────────────
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [kenniskaarten, setKenniskaarten] = useState<Kenniskaart[]>([]);
+  const [experts, setExperts] = useState<Expert[]>([]);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [started, setStarted] = useState(false);
   const [done, setDone] = useState(false);
-  const [showExpertModal, setShowExpertModal] = useState(false);
+  const [selectedExpert, setSelectedExpert] = useState<Expert | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages, loading, suggestions]);
 
   useEffect(() => {
     if (!started) {
@@ -446,24 +424,21 @@ export default function ChatPage() {
           { role: "user", content: "Hallo, ik wil graag hulp voor een leerling." },
           { role: "assistant", content: data.message },
         ]);
+        setSuggestions(data.suggestions || []);
       }
     } catch {
-      setMessages([
-        {
-          role: "assistant",
-          content: "Sorry, er is iets misgegaan bij het starten. Probeer de pagina te vernieuwen.",
-        },
-      ]);
+      setMessages([{ role: "assistant", content: "Sorry, er is iets misgegaan bij het starten. Probeer de pagina te vernieuwen." }]);
     } finally {
       setLoading(false);
     }
   }
 
-  async function sendMessage() {
-    const text = input.trim();
-    if (!text || loading) return;
+  async function sendMessage(text?: string) {
+    const textToSend = (text ?? input).trim();
+    if (!textToSend || loading) return;
 
-    const newMessages: Message[] = [...messages, { role: "user", content: text }];
+    setSuggestions([]); // clear chips when sending
+    const newMessages: Message[] = [...messages, { role: "user", content: textToSend }];
     setMessages(newMessages);
     setInput("");
     setLoading(true);
@@ -479,15 +454,17 @@ export default function ChatPage() {
       if (data.message) {
         setMessages([...newMessages, { role: "assistant", content: data.message }]);
       }
+      setSuggestions(data.suggestions || []);
+
       if (data.kenniskaarten?.length > 0) {
         setKenniskaarten(data.kenniskaarten);
         setDone(true);
       }
+      if (data.experts?.length > 0) {
+        setExperts(data.experts);
+      }
     } catch {
-      setMessages([
-        ...newMessages,
-        { role: "assistant", content: "Sorry, er is iets misgegaan. Probeer het opnieuw." },
-      ]);
+      setMessages([...newMessages, { role: "assistant", content: "Sorry, er is iets misgegaan. Probeer het opnieuw." }]);
     } finally {
       setLoading(false);
       setTimeout(() => inputRef.current?.focus(), 100);
@@ -504,20 +481,26 @@ export default function ChatPage() {
   function resetChat() {
     setMessages([]);
     setKenniskaarten([]);
+    setExperts([]);
+    setSuggestions([]);
     setInput("");
     setStarted(false);
     setDone(false);
-    setShowExpertModal(false);
+    setSelectedExpert(null);
   }
+
+  // Default to first expert if none matched
+  const displayExperts = experts.length > 0 ? experts : [];
 
   return (
     <div className="flex flex-col h-screen bg-slate-50">
       {/* Expert modal */}
-      {showExpertModal && (
+      {selectedExpert && (
         <ExpertModal
+          expert={selectedExpert}
           messages={messages}
           kenniskaarten={kenniskaarten}
-          onClose={() => setShowExpertModal(false)}
+          onClose={() => setSelectedExpert(null)}
         />
       )}
 
@@ -530,9 +513,9 @@ export default function ChatPage() {
           <span className="text-slate-800 font-semibold">LesCoach</span>
         </Link>
         <div className="flex items-center gap-2">
-          {done && (
+          {done && displayExperts.length > 0 && (
             <button
-              onClick={() => setShowExpertModal(true)}
+              onClick={() => setSelectedExpert(displayExperts[0])}
               className="hidden sm:flex items-center gap-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -555,63 +538,86 @@ export default function ChatPage() {
 
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
+
         {/* Chat area */}
-        <div
-          className={`flex flex-col flex-1 overflow-hidden transition-all ${
-            kenniskaarten.length > 0 ? "lg:max-w-[58%]" : ""
-          }`}
-        >
+        <div className={`flex flex-col flex-1 overflow-hidden ${kenniskaarten.length > 0 ? "lg:max-w-[58%]" : ""}`}>
+
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
-            {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
-              >
-                {msg.role === "assistant" && (
-                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-                    <span className="text-white text-xs font-bold">L</span>
+            {messages.map((msg, i) => {
+              const isLast = i === messages.length - 1;
+              return (
+                <div key={i} className="space-y-2">
+                  <div className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+                    {msg.role === "assistant" && (
+                      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-white text-xs font-bold">L</span>
+                      </div>
+                    )}
+                    {msg.role === "user" && (
+                      <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                        <svg className="w-4 h-4 text-slate-500" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
+                        </svg>
+                      </div>
+                    )}
+                    <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
+                      msg.role === "assistant"
+                        ? "bg-white border border-slate-200 text-slate-800 rounded-tl-sm"
+                        : "bg-blue-600 text-white rounded-tr-sm"
+                    }`}>
+                      {msg.content.split("\n").map((line, j) => (
+                        <span key={j}>
+                          {line}
+                          {j < msg.content.split("\n").length - 1 && <br />}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                )}
-                {msg.role === "user" && (
-                  <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-                    <svg className="w-4 h-4 text-slate-500" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
-                    </svg>
-                  </div>
-                )}
-                <div
-                  className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
-                    msg.role === "assistant"
-                      ? "bg-white border border-slate-200 text-slate-800 rounded-tl-sm"
-                      : "bg-blue-600 text-white rounded-tr-sm"
-                  }`}
-                >
-                  {msg.content.split("\n").map((line, j) => (
-                    <span key={j}>
-                      {line}
-                      {j < msg.content.split("\n").length - 1 && <br />}
-                    </span>
-                  ))}
+
+                  {/* Chips appear below the last assistant message */}
+                  {msg.role === "assistant" && isLast && suggestions.length > 0 && !loading && (
+                    <ChipRow
+                      suggestions={suggestions}
+                      onSelect={(s) => sendMessage(s)}
+                      disabled={loading}
+                    />
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {loading && <TypingIndicator />}
             <div ref={bottomRef} />
           </div>
 
-          {/* Results banner on mobile when done */}
-          {done && (
-            <div className="lg:hidden shrink-0">
-              <ResultsBanner
-                onContact={() => setShowExpertModal(true)}
-                onReset={resetChat}
-              />
+          {/* Mobile: done banner */}
+          {done && displayExperts.length > 0 && (
+            <div className="lg:hidden shrink-0 mx-4 mb-3">
+              <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shrink-0">
+                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <span className="text-sm font-semibold text-green-800">Analyse klaar</span>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setSelectedExpert(displayExperts[0])}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors">
+                    Expert inschakelen
+                  </button>
+                  <button onClick={resetChat}
+                    className="px-4 py-2.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200">
+                    Nieuw gesprek
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Input area */}
+          {/* Input */}
           <div className="shrink-0 bg-white border-t border-slate-100 px-4 py-3">
             <div className="flex items-end gap-2 max-w-3xl mx-auto">
               <textarea
@@ -626,7 +632,7 @@ export default function ChatPage() {
                 style={{ lineHeight: "1.5" }}
               />
               <button
-                onClick={sendMessage}
+                onClick={() => sendMessage()}
                 disabled={!input.trim() || loading}
                 className="w-10 h-10 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 text-white rounded-xl flex items-center justify-center transition-colors shrink-0"
               >
@@ -645,7 +651,6 @@ export default function ChatPage() {
         {kenniskaarten.length > 0 && (
           <div className="hidden lg:flex flex-col w-[42%] border-l border-slate-200 bg-slate-50 overflow-y-auto">
 
-            {/* Panel header */}
             <div className="px-5 py-4 border-b border-slate-200 bg-white sticky top-0 z-10">
               <div className="flex items-center gap-2">
                 <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shrink-0">
@@ -661,38 +666,44 @@ export default function ChatPage() {
             </div>
 
             <div className="p-5 space-y-4 flex-1">
-              {/* Kenniskaarten */}
               {kenniskaarten.map((k) => (
                 <KenniskaartCard key={k.id} kaart={k} />
               ))}
 
-              {/* Divider */}
-              <div className="flex items-center gap-3 py-1">
-                <div className="flex-1 border-t border-slate-200" />
-                <span className="text-xs text-slate-400 font-medium uppercase tracking-wide">Volgende stap</span>
-                <div className="flex-1 border-t border-slate-200" />
-              </div>
+              {/* Expert section */}
+              {displayExperts.length > 0 && (
+                <>
+                  <div className="flex items-center gap-3 py-1">
+                    <div className="flex-1 border-t border-slate-200" />
+                    <span className="text-xs text-slate-400 font-medium uppercase tracking-wide">
+                      {displayExperts.length === 1 ? "Passende expert" : "Passende experts"}
+                    </span>
+                    <div className="flex-1 border-t border-slate-200" />
+                  </div>
 
-              {/* Expert CTA */}
-              <ExpertCard onContact={() => setShowExpertModal(true)} />
+                  {displayExperts.map((expert) => (
+                    <ExpertCard
+                      key={expert.id}
+                      expert={expert}
+                      onContact={(e) => setSelectedExpert(e)}
+                    />
+                  ))}
+                </>
+              )}
 
-              {/* Additional CTAs */}
+              {/* Secondary CTAs */}
               <div className="grid grid-cols-2 gap-2">
-                <a
-                  href={kenniskaarten[0]?.pdfUrl || "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`flex items-center justify-center gap-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 py-2.5 rounded-xl transition-colors ${!kenniskaarten[0]?.pdfUrl ? "opacity-40 pointer-events-none" : ""}`}
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Download PDF
-                </a>
-                <button
-                  onClick={resetChat}
-                  className="flex items-center justify-center gap-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 py-2.5 rounded-xl transition-colors"
-                >
+                {kenniskaarten[0]?.pdfUrl && (
+                  <a href={kenniskaarten[0].pdfUrl} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 py-2.5 rounded-xl transition-colors">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Download PDF
+                  </a>
+                )}
+                <button onClick={resetChat}
+                  className="flex items-center justify-center gap-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 py-2.5 rounded-xl transition-colors col-span-1">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
@@ -704,7 +715,7 @@ export default function ChatPage() {
         )}
       </div>
 
-      {/* Mobile kenniskaarten (stacked below chat) */}
+      {/* Mobile kenniskaarten */}
       {kenniskaarten.length > 0 && (
         <div className="lg:hidden border-t border-slate-200 bg-white max-h-72 overflow-y-auto">
           <div className="px-4 py-3 border-b border-slate-100 sticky top-0 bg-white">
