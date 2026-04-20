@@ -107,6 +107,10 @@ export async function POST(request: NextRequest) {
                   })),
                 }),
               },
+              {
+                type: "text",
+                text: "Schrijf nu DIRECT de eindrapportage (Fase 3). Geen vragen meer — begin meteen met de samenvatting van wat je gehoord hebt.",
+              },
             ],
           },
         ];
@@ -115,6 +119,7 @@ export async function POST(request: NextRequest) {
           model: "claude-sonnet-4-6",
           max_tokens: 2000,
           system: systemPrompt,
+          tool_choice: { type: "none" }, // force text-only response for end report
           tools,
           messages: messagesWithTool,
         });
