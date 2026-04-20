@@ -768,21 +768,34 @@ export default function ChatPage() {
         {kenniskaarten.length > 0 && (
           <div className="hidden lg:flex flex-col w-[42%] border-l border-slate-200 bg-slate-50 overflow-y-auto">
 
+            {/* Panel header */}
             <div className="px-5 py-4 border-b border-slate-200 bg-white sticky top-0 z-10">
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shrink-0">
-                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              <div className="flex items-center gap-2.5">
+                <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shrink-0">
+                  <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <h2 className="font-semibold text-slate-800 text-sm">Analyse klaar</h2>
+                <div>
+                  <h2 className="font-semibold text-slate-800 text-sm leading-tight">Advies van Jeroen</h2>
+                  <p className="text-xs text-slate-400 leading-tight">
+                    {kenniskaarten.length} kenniskaart{kenniskaarten.length !== 1 ? "en" : ""}
+                    {displayExperts.length > 0 ? ` · ${displayExperts.length} expert${displayExperts.length !== 1 ? "s" : ""}` : ""}
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5 ml-7">
-                {kenniskaarten.length} kenniskaart{kenniskaarten.length !== 1 ? "en" : ""} gevonden
-              </p>
             </div>
 
             <div className="p-5 space-y-4 flex-1">
+
+              {/* Section label: kenniskaarten */}
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Kenniskaarten</span>
+              </div>
+
               {kenniskaarten.map((k) => (
                 <KenniskaartCard key={k.id} kaart={k} />
               ))}
@@ -790,12 +803,17 @@ export default function ChatPage() {
               {/* Expert section */}
               {displayExperts.length > 0 && (
                 <>
-                  <div className="flex items-center gap-3 py-1">
-                    <div className="flex-1 border-t border-slate-200" />
-                    <span className="text-xs text-slate-400 font-medium uppercase tracking-wide">
+                  <div className="flex items-center gap-2 pt-2">
+                    <svg className="w-4 h-4 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
                       {displayExperts.length === 1 ? "Passende expert" : "Passende experts"}
                     </span>
-                    <div className="flex-1 border-t border-slate-200" />
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-700 leading-relaxed">
+                    Jeroen heeft {displayExperts.length === 1 ? "een expert" : "experts"} gevonden die past bij de uitdaging die je beschreef. {displayExperts.length === 1 ? "Zij ontvangt" : "Zij ontvangen"} automatisch het volledige gespreksverslag.
                   </div>
 
                   {displayExperts.map((expert) => (
@@ -834,11 +852,17 @@ export default function ChatPage() {
 
       {/* Mobile kenniskaarten */}
       {kenniskaarten.length > 0 && (
-        <div className="lg:hidden border-t border-slate-200 bg-white max-h-72 overflow-y-auto">
-          <div className="px-4 py-3 border-b border-slate-100 sticky top-0 bg-white">
+        <div className="lg:hidden border-t border-slate-200 bg-white max-h-80 overflow-y-auto">
+          <div className="px-4 py-3 border-b border-slate-100 sticky top-0 bg-white flex items-center gap-2">
+            <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shrink-0">
+              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
             <h2 className="font-semibold text-slate-800 text-sm">
-              Gevonden kenniskaarten ({kenniskaarten.length})
+              Advies van Jeroen
             </h2>
+            <span className="text-xs text-slate-400 ml-auto">{kenniskaarten.length} kaart{kenniskaarten.length !== 1 ? "en" : ""}</span>
           </div>
           <div className="p-4 space-y-3">
             {kenniskaarten.map((k) => (
