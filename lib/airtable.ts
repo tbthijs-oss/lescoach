@@ -59,7 +59,7 @@ export async function searchKenniskaarten(
 
   const scored = all.map((k) => {
     let score = 0;
-    const searchText = [k.titel, k.categorie, k.samenvatting, k.trefwoorden.join(" ")]
+    const searchText = [k.titel, k.categorie, k.samenvatting, k.watIsHet, k.gevolgen, k.tips, k.trefwoorden.join(" ")]
       .join(" ")
       .toLowerCase();
 
