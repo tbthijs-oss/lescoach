@@ -142,6 +142,54 @@ export async function POST(request: NextRequest) {
           matchExperts([input.zoekterm, ...usedTrefwoorden]),
         ]);
 
+        // Safety net: if the search returned nothing, do NOT emit an end
+        // report — the final model pass would produce an empty message
+        // (no data to report on) and the UI would stall. Ask Noor for one
+        // more specific question instead, so the teacher stays in flow.
+        if (kenniskaarten.length === 0) {
+          const fallbackInstruction = `Je hebt \`zoek_kenniskaarten\` aangeroepen met zoekterm "${input.zoekterm}", maar er zijn GEEN kenniskaarten gevonden. Je mag nu GEEN eindrapport schrijven. In plaats daarvan: geef één korte reactie (max 2 zinnen) waarin je erkent dat je nog iets meer context nodig hebt om de juiste kaart te vinden, en stel precies één concrete vervolgvraag die de zoekopdracht kan verbreden of versmallen (bijvoorbeeld: specifieker gedrag, andere context, bijbehorende symptomen). Geen bullets, geen <noor-data>. Voeg desgewenst één [Suggesties: ...] regel toe aan het einde met 3-5 gerichte chips.`;
+
+          const retryMessages: Anthropic.MessageParam[] = [
+            ...safeMessages,
+            { role: "assistant", content: response.content },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "tool_result",
+                  tool_use_id: toolUseBlock.id,
+                  content: JSON.stringify({ gevonden: 0, kenniskaarten: [] }),
+                },
+                { type: "text", text: fallbackInstruction },
+              ],
+            },
+          ];
+
+          const retryResponse = await client.messages.create({
+            model: "claude-sonnet-4-6",
+            max_tokens: 500,
+            system: SYSTEM_PROMPT,
+            messages: retryMessages,
+          });
+
+          const retryText = retryResponse.content.find((b) => b.type === "text");
+          const retryRaw = retryText?.type === "text" ? retryText.text : "";
+          const { message: retryMsg, suggestions: retrySuggestions } = parseSuggestions(retryRaw);
+
+          return NextResponse.json({
+            message:
+              retryMsg ||
+              "Ik kan het nog niet helemaal plaatsen. Kun je één concreet voorbeeld geven van wat je ziet?",
+            suggestions: retrySuggestions,
+            kenniskaarten: [],
+            experts,
+            analysis: null,
+            primaryKaartId: null,
+            done: false,
+            piiFiltered: piiDetected,
+          });
+        }
+
         const messagesWithTool: Anthropic.MessageParam[] = [
           ...safeMessages,
           { role: "assistant", content: response.content },
@@ -193,8 +241,13 @@ export async function POST(request: NextRequest) {
           primaryKaartId = kenniskaarten[0].id;
         }
 
+        const safeMessage =
+          message && message.trim().length > 0
+            ? message
+            : "Ik heb een aantal kenniskaarten gevonden die bij dit beeld passen. Rechts zie je wat Noor voor je heeft gevonden. Wil je persoonlijk advies op maat? Via de knop kun je direct contact opnemen met een expert.";
+
         return NextResponse.json({
-          message,
+          message: safeMessage,
           suggestions: [],
           kenniskaarten,
           experts,
