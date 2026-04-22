@@ -1,7 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { searchKenniskaarten, matchExperts } from "@/lib/airtable";
-import { buildSystemPrompt, buildPhase3Prompt } from "@/lib/systemPrompt";
+import { SYSTEM_PROMPT } from "@/lib/systemPrompt";
+import { filterPiiFromMessages, summarizeDetections } from "@/lib/pii";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -10,25 +11,86 @@ interface Message {
   content: string;
 }
 
-/** Strip [Suggesties: ...] marker from Claude's text and return chips separately */
+export interface NoorAnalysis {
+  profileLine: string;
+  primaryKaartTitel: string;
+  insight: string;
+  acties: string[];
+  overleg: string;
+  signaal: string;
+  contextChips: string[];
+}
+
 function parseSuggestions(text: string): { message: string; suggestions: string[] } {
-  const match = text.match(/\[Suggesties:\s*([^\]]+)\]/i);
+  // Be forgiving: accept "Suggesties" / "Suggestions", optional spaces, and
+  // both "|" and "/" as separators (models occasionally substitute).
+  const match = text.match(/\[(?:suggesties|suggestions)\s*:\s*([^\]]+)\]/i);
   if (!match) return { message: text, suggestions: [] };
-  const suggestions = match[1]
-    .split("|")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const rawList = match[1];
+  // Prefer | as the separator, fall back to comma if no pipes present.
+  const separator = rawList.includes("|") ? "|" : ",";
+  const suggestions = Array.from(
+    new Set(
+      rawList
+        .split(separator)
+        .map((s) => s.trim())
+        .filter(Boolean)
+    )
+  );
   const message = text.replace(match[0], "").trim();
   return { message, suggestions };
 }
 
+function parseNoorData(text: string): {
+  message: string;
+  analysis: NoorAnalysis | null;
+} {
+  const match = text.match(/<noor-data>([\s\S]*?)<\/noor-data>/i);
+  if (!match) return { message: text, analysis: null };
+
+  const body = match[1].trim();
+  const cleaned = text.replace(match[0], "").trim();
+
+  try {
+    const raw = JSON.parse(body) as Partial<NoorAnalysis>;
+    const analysis: NoorAnalysis = {
+      profileLine: String(raw.profileLine ?? ""),
+      primaryKaartTitel: String(raw.primaryKaartTitel ?? ""),
+      insight: String(raw.insight ?? ""),
+      acties: Array.isArray(raw.acties)
+        ? raw.acties.map((a) => String(a)).filter(Boolean)
+        : [],
+      overleg: String(raw.overleg ?? ""),
+      signaal: String(raw.signaal ?? ""),
+      contextChips: Array.isArray(raw.contextChips)
+        ? raw.contextChips.map((c) => String(c)).filter(Boolean).slice(0, 6)
+        : [],
+    };
+    return { message: cleaned, analysis };
+  } catch (err) {
+    console.warn("[chat] kon <noor-data> niet parsen:", err);
+    return { message: cleaned, analysis: null };
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { messages, userName, userSchool }: { messages: Message[]; userName?: string; userSchool?: string } = await request.json();
-    const systemPrompt = buildSystemPrompt(userName, userSchool);
+    const { messages }: { messages: Message[] } = await request.json();
 
     if (!messages || messages.length === 0) {
       return NextResponse.json({ error: "Geen berichten meegegeven" }, { status: 400 });
+    }
+
+    const {
+      messages: safeMessages,
+      anyDetected: piiDetected,
+      detections: piiDetections,
+    } = filterPiiFromMessages(messages);
+
+    if (piiDetected) {
+      console.warn(
+        `[pii-filter] gefilterd in inkomend verzoek: ${summarizeDetections(piiDetections)}`
+      );
     }
 
     const tools: Anthropic.Tool[] = [
@@ -56,16 +118,14 @@ export async function POST(request: NextRequest) {
       },
     ];
 
-    // First API call
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 1500,
-      system: systemPrompt,
+      system: SYSTEM_PROMPT,
       tools,
-      messages,
+      messages: safeMessages,
     });
 
-    // Handle tool use (Phase 2 → 3 transition)
     if (response.stop_reason === "tool_use") {
       const toolUseBlock = response.content.find((b) => b.type === "tool_use");
 
@@ -77,14 +137,13 @@ export async function POST(request: NextRequest) {
 
         const usedTrefwoorden = input.trefwoorden || [];
 
-        // Search kenniskaarten and match experts in parallel
         const [kenniskaarten, experts] = await Promise.all([
           searchKenniskaarten(input.zoekterm, usedTrefwoorden),
           matchExperts([input.zoekterm, ...usedTrefwoorden]),
         ]);
 
         const messagesWithTool: Anthropic.MessageParam[] = [
-          ...messages,
+          ...safeMessages,
           { role: "assistant", content: response.content },
           {
             role: "user",
@@ -102,6 +161,8 @@ export async function POST(request: NextRequest) {
                     gevolgen: k.gevolgen,
                     tips: k.tips,
                     trefwoorden: k.trefwoorden,
+                    pdfUrl: k.pdfUrl,
+                    bronUrl: k.bronUrl,
                   })),
                 }),
               },
@@ -109,80 +170,42 @@ export async function POST(request: NextRequest) {
           },
         ];
 
-        // Use a focused Phase 3-only system prompt so Claude doesn't fall back to intake mode
-        const phase3Prompt = buildPhase3Prompt(userName, userSchool);
         const finalResponse = await client.messages.create({
           model: "claude-sonnet-4-6",
           max_tokens: 2000,
-          system: phase3Prompt,
+          system: SYSTEM_PROMPT,
+          tools,
           messages: messagesWithTool,
         });
 
         const textContent = finalResponse.content.find((b) => b.type === "text");
         const rawText = textContent?.type === "text" ? textContent.text : "";
-        const { message } = parseSuggestions(rawText); // no chips in results phase
+        const { message: withoutChips } = parseSuggestions(rawText);
+        const { message, analysis } = parseNoorData(withoutChips);
+
+        let primaryKaartId: string | null = null;
+        if (analysis?.primaryKaartTitel && kenniskaarten.length > 0) {
+          const needle = analysis.primaryKaartTitel.trim().toLowerCase();
+          const found = kenniskaarten.find((k) => k.titel.trim().toLowerCase() === needle);
+          primaryKaartId = found ? found.id : null;
+        }
+        if (!primaryKaartId && kenniskaarten.length > 0) {
+          primaryKaartId = kenniskaarten[0].id;
+        }
 
         return NextResponse.json({
           message,
-          suggestions: [], // no chips after analysis
+          suggestions: [],
           kenniskaarten,
           experts,
+          analysis,
+          primaryKaartId,
           done: true,
+          piiFiltered: piiDetected,
         });
       }
     }
 
-    // Claude gave a text response instead of calling the tool.
-    // If we already have ≥4 exchanges, force the search and end report ourselves.
-    const userTurns = messages.filter((m) => m.role === "user").length;
-    if (userTurns >= 4) {
-      // Use the first user message (situation description) as primary search term
-      const firstUserMessage = messages.find((m) => m.role === "user")?.content || "";
-      const allUserText = messages
-        .filter((m) => m.role === "user")
-        .map((m) => m.content)
-        .join(" ");
-      const zoekterm = firstUserMessage.slice(0, 120);
-      // Extract keywords: all individual words >4 chars from all user messages
-      const trefwoorden = Array.from(
-        new Set(allUserText.split(/\s+/).filter((w) => w.length > 4))
-      ).slice(0, 8);
-
-      const [kenniskaarten, experts] = await Promise.all([
-        searchKenniskaarten(zoekterm, trefwoorden),
-        matchExperts([zoekterm, ...trefwoorden]),
-      ]);
-
-      // Build a Phase 3 end report rather than using Claude's intake question
-      const phase3Prompt = buildPhase3Prompt(userName, userSchool);
-      const fallbackMessages: Anthropic.MessageParam[] = [
-        ...messages,
-        {
-          role: "user" as const,
-          content: `Schrijf nu de eindrapportage. Gevonden kenniskaarten: ${JSON.stringify(
-            kenniskaarten.map((k) => ({ titel: k.titel, samenvatting: k.samenvatting }))
-          )}`,
-        },
-      ];
-      const fallbackResponse = await client.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 2000,
-        system: phase3Prompt,
-        messages: fallbackMessages,
-      });
-      const fallbackText = fallbackResponse.content.find((b) => b.type === "text");
-      const fallbackMsg = fallbackText?.type === "text" ? fallbackText.text : "";
-
-      return NextResponse.json({
-        message: fallbackMsg,
-        suggestions: [],
-        kenniskaarten,
-        experts,
-        done: true,
-      });
-    }
-
-    // Regular text response (intake phase) — parse chip suggestions
     const textContent = response.content.find((b) => b.type === "text");
     const rawText = textContent?.type === "text" ? textContent.text : "";
     const { message, suggestions } = parseSuggestions(rawText);
@@ -192,7 +215,10 @@ export async function POST(request: NextRequest) {
       suggestions,
       kenniskaarten: [],
       experts: [],
+      analysis: null,
+      primaryKaartId: null,
       done: false,
+      piiFiltered: piiDetected,
     });
   } catch (error) {
     console.error("Chat API error:", error);
