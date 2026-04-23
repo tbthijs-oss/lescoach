@@ -80,6 +80,28 @@ export default function ToegangsPage() {
         </div>
       </div>
 
+      {/* Founder shortcut → /chat */}
+      <div className="bg-white border border-blue-200 rounded-2xl p-6 mb-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+          <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+          </svg>
+          Open chat als founder
+        </h2>
+        <p className="text-sm text-slate-500 leading-relaxed mb-3">
+          Rechtstreeks naar de chat zonder magic-link te ontvangen. Zet een leraar-sessiecookie onder een synthetische &quot;founder&quot;-identiteit. Alleen zichtbaar zolang je als beheerder bent ingelogd.
+        </p>
+        <a
+          href="/api/beheer/als-founder"
+          className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+        >
+          Open chat
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+          </svg>
+        </a>
+      </div>
+
       {/* How to change */}
       <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 mb-4">
         <h2 className="text-sm font-semibold text-amber-800 mb-2 flex items-center gap-2">
