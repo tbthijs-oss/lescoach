@@ -23,7 +23,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Geen geldig e-mailadres." }, { status: 400 });
     }
 
-    const expert = await findExpertByEmail(email);
+    let expert: Awaited<ReturnType<typeof findExpertByEmail>> = null;
+    try {
+      expert = await findExpertByEmail(email);
+    } catch (lookupErr) {
+      console.warn("[expert/auth/request] expert-lookup faalde:", lookupErr);
+    }
     if (expert) {
       const token = generateToken();
       const verlooptOp = magicLinkExpiry();

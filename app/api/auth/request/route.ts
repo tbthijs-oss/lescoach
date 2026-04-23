@@ -29,8 +29,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Geen geldig e-mailadres." }, { status: 400 });
     }
 
-    // Lookup — silently ignore als e-mail onbekend is (anti-enumeration)
-    const leraar = await findLeraarByEmail(email);
+    // Lookup — silently ignore als e-mail onbekend is (anti-enumeration).
+    // Als de Leraren-tabel nog niet bestaat (Airtable 404), doen we alsof
+    // de email onbekend is. Zo ziet een bezoeker geen "Server error".
+    let leraar: Awaited<ReturnType<typeof findLeraarByEmail>> = null;
+    try {
+      leraar = await findLeraarByEmail(email);
+    } catch (lookupErr) {
+      console.warn("[auth/request] leraar-lookup faalde (tabel ontbreekt?):", lookupErr);
+    }
 
     if (leraar && leraar.status !== "geblokkeerd") {
       const token = generateToken();
