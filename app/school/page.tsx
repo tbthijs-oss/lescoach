@@ -30,6 +30,196 @@ function StatusBadge({ status }: { status: Leraar["status"] }) {
   return <span className={`text-xs px-2 py-0.5 rounded-full border ${cls}`}>{label}</span>;
 }
 
+// Parse één regel uit het bulk-veld naar { naam, email, rol }
+// Accepteert flexibele formats:
+//   jan@school.nl
+//   Jan Jansen, jan@school.nl
+//   Jan Jansen; jan@school.nl
+//   Jan Jansen <jan@school.nl>
+//   Jan Jansen, jan@school.nl, admin
+function parseBulkLine(raw: string): { naam: string; email: string; rol: "admin" | "leraar" } | null {
+  const line = raw.trim();
+  if (!line) return null;
+
+  const angle = line.match(/^(.+?)\s*<([^>]+)>\s*(?:[,;]\s*(admin|leraar))?$/i);
+  if (angle) {
+    const email = angle[2].trim();
+    if (!email.includes("@")) return null;
+    return {
+      naam: angle[1].trim() || email.split("@")[0],
+      email,
+      rol: (angle[3]?.toLowerCase() === "admin" ? "admin" : "leraar") as "admin" | "leraar",
+    };
+  }
+
+  const parts = line.split(/\s*[,;\t]\s*/).map((p) => p.trim()).filter(Boolean);
+
+  if (parts.length === 1) {
+    const e = parts[0];
+    if (!e.includes("@")) return null;
+    return { naam: e.split("@")[0], email: e, rol: "leraar" };
+  }
+
+  const emailIdx = parts.findIndex((p) => p.includes("@"));
+  if (emailIdx < 0) return null;
+  const email = parts[emailIdx];
+  const naam = parts.find((_, i) => i !== emailIdx) || email.split("@")[0];
+  const rolToken = parts.find((p, i) => i !== emailIdx && /^(admin|leraar)$/i.test(p));
+  const rol = (rolToken?.toLowerCase() === "admin" ? "admin" : "leraar") as "admin" | "leraar";
+  return { naam, email, rol };
+}
+
+type BulkRowResult = {
+  line: string;
+  naam: string;
+  email: string;
+  rol: "admin" | "leraar";
+  status: "pending" | "ok" | "error";
+  error?: string;
+};
+
+function BulkInviteForm({ onInvited }: { onInvited: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [results, setResults] = useState<BulkRowResult[]>([]);
+
+  const preview = text
+    .split(/\r?\n/)
+    .map((l) => ({ raw: l, parsed: parseBulkLine(l) }))
+    .filter((x) => x.raw.trim().length > 0);
+
+  const validCount = preview.filter((x) => x.parsed).length;
+  const invalidCount = preview.length - validCount;
+
+  async function runBatch() {
+    setBusy(true);
+    setResults([]);
+    const queue: BulkRowResult[] = preview
+      .filter((x) => x.parsed)
+      .map((x) => ({
+        line: x.raw,
+        naam: x.parsed!.naam,
+        email: x.parsed!.email,
+        rol: x.parsed!.rol,
+        status: "pending" as const,
+      }));
+    setResults(queue);
+
+    for (let i = 0; i < queue.length; i++) {
+      const row = queue[i];
+      try {
+        const res = await fetch("/api/beheer/leraren", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ naam: row.naam, email: row.email, rol: row.rol }),
+        });
+        const data = await res.json().catch(() => ({}));
+        row.status = res.ok ? "ok" : "error";
+        if (!res.ok) row.error = data.error || `HTTP ${res.status}`;
+      } catch (e) {
+        row.status = "error";
+        row.error = e instanceof Error ? e.message : "Netwerkfout";
+      }
+      setResults([...queue]);
+    }
+    setBusy(false);
+    onInvited();
+  }
+
+  const okCount = results.filter((r) => r.status === "ok").length;
+  const errCount = results.filter((r) => r.status === "error").length;
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between text-left"
+      >
+        <div className="flex items-center gap-2">
+          <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87M16 7a4 4 0 11-8 0 4 4 0 018 0zM20 7a4 4 0 10-3 6.93M12 14v7" />
+          </svg>
+          <h3 className="text-sm font-semibold text-slate-900">Meerdere leraren tegelijk uitnodigen</h3>
+        </div>
+        <svg className={`w-4 h-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open ? (
+        <div className="space-y-3 pt-1">
+          <p className="text-xs text-slate-500">
+            Plak één leraar per regel. Voorbeelden:
+          </p>
+          <pre className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-600 whitespace-pre-wrap leading-5">
+{`jan@school.nl
+Anna de Vries, anna@school.nl
+Kees Bakker, kees@school.nl, admin
+Piet Jansen <piet@school.nl>`}
+          </pre>
+
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={6}
+            disabled={busy}
+            placeholder="Plak of typ hier je leraren, één per regel…"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50"
+          />
+
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="text-xs text-slate-600">
+              {validCount > 0 ? <span className="font-medium text-slate-900">{validCount}</span> : "0"} geldig
+              {invalidCount > 0 ? (
+                <span className="ml-2 text-amber-700">· {invalidCount} onleesbaar (overgeslagen)</span>
+              ) : null}
+              {results.length > 0 ? (
+                <span className="ml-2">
+                  · <span className="text-green-700">{okCount} verstuurd</span>
+                  {errCount > 0 ? <span className="ml-1 text-red-700">· {errCount} mislukt</span> : null}
+                </span>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={runBatch}
+              disabled={busy || validCount === 0}
+              className="bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-slate-300"
+            >
+              {busy ? `Uitnodigen… (${okCount + errCount}/${validCount})` : `${validCount} uitnodigen`}
+            </button>
+          </div>
+
+          {results.length > 0 ? (
+            <div className="mt-2 border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-72 overflow-y-auto">
+              {results.map((r, i) => (
+                <div key={i} className="flex items-center gap-3 px-3 py-2 text-xs">
+                  <div className={`w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center ${
+                    r.status === "ok" ? "bg-green-500 text-white" :
+                    r.status === "error" ? "bg-red-500 text-white" :
+                    "bg-slate-200"
+                  }`}>
+                    {r.status === "ok" ? "✓" : r.status === "error" ? "!" : ""}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-slate-900 truncate">
+                      {r.naam} <span className="text-slate-400">·</span> {r.email}
+                      {r.rol === "admin" ? <span className="ml-1 text-blue-600">(admin)</span> : null}
+                    </div>
+                    {r.error ? <div className="text-red-600 truncate">{r.error}</div> : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function InviteForm({ onInvited }: { onInvited: () => void }) {
   const [naam, setNaam] = useState("");
   const [email, setEmail] = useState("");
@@ -318,6 +508,7 @@ export default function SchoolDashboard() {
         />
 
         <InviteForm onInvited={loadAll} />
+        <BulkInviteForm onInvited={loadAll} />
 
         {err ? (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{err}</div>
