@@ -79,6 +79,149 @@ function TypingIndicator() {
 
 // ─── Chip suggestions ─────────────────────────────────────────────────────────
 
+// ─── Voice helpers ──────────────────────────────────────────────────────────
+
+function SpeakerButton({ text }: { text: string }) {
+  const [playing, setPlaying] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+      audioRef.current = null;
+    };
+  }, []);
+
+  async function toggle() {
+    if (playing) {
+      audioRef.current?.pause();
+      setPlaying(false);
+      return;
+    }
+    if (audioRef.current) {
+      await audioRef.current.play().catch(() => {});
+      setPlaying(true);
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/speak?text=${encodeURIComponent(text)}`);
+      if (!res.ok) throw new Error("tts");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => setPlaying(false);
+      audio.onpause = () => setPlaying(false);
+      audio.onplay = () => setPlaying(true);
+      await audio.play();
+    } catch {
+      // Silent fail — likely TTS not configured
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      className="text-slate-400 hover:text-blue-600 transition-colors p-1.5 rounded-lg hover:bg-blue-50"
+      aria-label={playing ? "Stop voorlezen" : "Lees voor"}
+      title={playing ? "Stop voorlezen" : "Lees voor"}
+      type="button"
+    >
+      {loading ? (
+        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
+          <path d="M22 12a10 10 0 01-10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+        </svg>
+      ) : playing ? (
+        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+          <rect x="6" y="5" width="4" height="14" rx="1" />
+          <rect x="14" y="5" width="4" height="14" rx="1" />
+        </svg>
+      ) : (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072M9 9H5a1 1 0 00-1 1v4a1 1 0 001 1h4l5 4V5L9 9z" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+// SpeechRecognition is not in standard TS lib types yet
+/* eslint-disable @typescript-eslint/no-explicit-any */
+interface MicButtonProps {
+  onTranscript: (text: string) => void;
+  disabled?: boolean;
+}
+
+function MicButton({ onTranscript, disabled }: MicButtonProps) {
+  const [listening, setListening] = useState(false);
+  const [supported, setSupported] = useState(true);
+  const recRef = useRef<any>(null);
+
+  useEffect(() => {
+    const w = window as any;
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!SR) setSupported(false);
+  }, []);
+
+  function start() {
+    if (disabled) return;
+    const w = window as any;
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!SR) return;
+    const rec = new SR();
+    rec.lang = "nl-NL";
+    rec.interimResults = true;
+    rec.continuous = false;
+    let finalTranscript = "";
+    rec.onresult = (e: any) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) finalTranscript += r[0].transcript;
+        else interim += r[0].transcript;
+      }
+      onTranscript((finalTranscript + interim).trim());
+    };
+    rec.onerror = () => setListening(false);
+    rec.onend = () => setListening(false);
+    recRef.current = rec;
+    setListening(true);
+    try { rec.start(); } catch { setListening(false); }
+  }
+
+  function stop() {
+    recRef.current?.stop();
+    setListening(false);
+  }
+
+  if (!supported) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={listening ? stop : start}
+      disabled={disabled}
+      aria-label={listening ? "Stop dicteren" : "Dicteer je bericht"}
+      title={listening ? "Stop dicteren" : "Spreek je bericht in"}
+      className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all shrink-0 ${
+        listening
+          ? "bg-rose-100 text-rose-600 ring-2 ring-rose-300 animate-pulse"
+          : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700"
+      } disabled:opacity-50`}
+    >
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-14 0m7 7v4m-4 0h8M12 3a3 3 0 00-3 3v5a3 3 0 006 0V6a3 3 0 00-3-3z" />
+      </svg>
+    </button>
+  );
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 function ChipRow({
   suggestions,
   onSelect,
@@ -687,6 +830,7 @@ export default function ChatPage() {
   const [done, setDone] = useState(false);
   const [selectedExpert, setSelectedExpert] = useState<Expert | null>(null);
   const [piiWarning, setPiiWarning] = useState(false);
+  const [mobileSheet, setMobileSheet] = useState<"hidden" | "peek" | "full">("hidden");
   const [authedUser, setAuthedUser] = useState<{ naam: string; rol: "admin" | "leraar"; schoolnaam?: string } | null>(null);
   const router = useRouter();
 
@@ -778,6 +922,9 @@ export default function ChatPage() {
       if (data.kenniskaarten?.length > 0) {
         setKenniskaarten(data.kenniskaarten);
         setDone(true);
+        if (typeof window !== "undefined" && window.innerWidth < 1024) {
+          setMobileSheet("peek");
+        }
       }
       if (data.experts?.length > 0) {
         setExperts(data.experts);
@@ -826,7 +973,7 @@ export default function ChatPage() {
   const displayExperts = experts.length > 0 ? experts : [];
 
   return (
-    <div className="flex flex-col h-screen bg-slate-50 print:bg-white print:h-auto">
+    <div className="flex flex-col h-screen bg-[#fefcf7] print:bg-white print:h-auto">
       {/* Expert modal */}
       {selectedExpert && (
         <ExpertModal
@@ -838,7 +985,7 @@ export default function ChatPage() {
       )}
 
       {/* Header */}
-      <header className="bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between shrink-0 print:hidden">
+      <header className="bg-white/90 backdrop-blur border-b border-amber-100 px-4 py-3 flex items-center justify-between shrink-0 print:hidden sticky top-0 z-20">
         <Link href="/" className="flex items-center gap-2.5">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
             <span className="text-white text-sm font-bold">L</span>
@@ -892,15 +1039,15 @@ export default function ChatPage() {
         <div className={`flex flex-col flex-1 overflow-hidden print:hidden ${done ? "lg:max-w-[45%]" : ""}`}>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
+          <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
             {messages.map((msg, i) => {
               const isLast = i === messages.length - 1;
               return (
                 <div key={i} className="space-y-2">
                   <div className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
                     {msg.role === "assistant" && (
-                      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-                        <span className="text-white text-xs font-bold">N</span>
+                      <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                        <span className="text-white text-sm font-semibold">N</span>
                       </div>
                     )}
                     {msg.role === "user" && (
@@ -910,17 +1057,24 @@ export default function ChatPage() {
                         </svg>
                       </div>
                     )}
-                    <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
-                      msg.role === "assistant"
-                        ? "bg-white border border-slate-200 text-slate-800 rounded-tl-sm"
-                        : "bg-blue-600 text-white rounded-tr-sm"
-                    }`}>
-                      {msg.content.split("\n").map((line, j) => (
-                        <span key={j}>
-                          {line}
-                          {j < msg.content.split("\n").length - 1 && <br />}
-                        </span>
-                      ))}
+                    <div className="flex flex-col gap-1 max-w-[85%]">
+                      <div className={`rounded-2xl px-4 py-3 text-[15px] leading-relaxed shadow-sm ${
+                        msg.role === "assistant"
+                          ? "bg-white border border-amber-100 text-slate-800 rounded-tl-sm"
+                          : "bg-blue-600 text-white rounded-tr-sm"
+                      }`}>
+                        {msg.content.split("\n").map((line, j) => (
+                          <span key={j}>
+                            {line}
+                            {j < msg.content.split("\n").length - 1 && <br />}
+                          </span>
+                        ))}
+                      </div>
+                      {msg.role === "assistant" ? (
+                        <div className="flex items-center gap-1 pl-1">
+                          <SpeakerButton text={msg.content} />
+                        </div>
+                      ) : null}
                     </div>
                   </div>
 
@@ -940,24 +1094,33 @@ export default function ChatPage() {
             <div ref={bottomRef} />
           </div>
 
-          {/* Mobile: done banner */}
-          {done && displayExperts.length > 0 && (
+          {/* Mobile: done banner (sheet trigger) */}
+          {done && kenniskaarten.length > 0 && mobileSheet === "hidden" && (
             <div className="lg:hidden shrink-0 mx-4 mb-3">
-              <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shrink-0">
-                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              <button
+                onClick={() => setMobileSheet("peek")}
+                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-2xl p-4 flex items-center justify-between shadow-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <span className="text-sm font-semibold text-green-800">Analyse klaar — scroll naar beneden</span>
+                  <div className="text-left">
+                    <div className="text-sm font-semibold">Jouw resultaten</div>
+                    <div className="text-xs text-blue-100">{kenniskaarten.length} kenniskaart{kenniskaarten.length === 1 ? "" : "en"} &middot; {displayExperts.length} expert{displayExperts.length === 1 ? "" : "s"}</div>
+                  </div>
                 </div>
-              </div>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                </svg>
+              </button>
             </div>
           )}
 
           {/* Input */}
-          <div className="shrink-0 bg-white border-t border-slate-100 px-4 py-3">
+          <div className="shrink-0 bg-white border-t border-amber-100 px-4 py-3 pb-[env(safe-area-inset-bottom,0.75rem)]">
             {piiWarning && (
               <div className="max-w-3xl mx-auto mb-2 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-xs text-amber-800">
                 <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -979,21 +1142,25 @@ export default function ChatPage() {
               </div>
             )}
             <div className="flex items-end gap-2 max-w-3xl mx-auto">
+              <MicButton
+                disabled={loading}
+                onTranscript={(t) => setInput(t)}
+              />
               <textarea
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={done ? "Stel een vervolgvraag…" : "Typ je bericht…"}
+                placeholder={done ? "Stel een vervolgvraag…" : "Typ of dicteer je bericht…"}
                 rows={1}
                 disabled={loading}
-                className="flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 max-h-40 overflow-y-auto"
+                className="flex-1 resize-none rounded-2xl border border-amber-100 bg-amber-50/40 px-4 py-3 text-[15px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 max-h-40 overflow-y-auto"
                 style={{ lineHeight: "1.5" }}
               />
               <button
                 onClick={() => sendMessage()}
                 disabled={!input.trim() || loading}
-                className="w-10 h-10 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 text-white rounded-xl flex items-center justify-center transition-colors shrink-0"
+                className="w-11 h-11 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 text-white rounded-2xl flex items-center justify-center transition-colors shrink-0"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.269 20.876L5.999 12zm0 0h7.5" />
@@ -1021,18 +1188,63 @@ export default function ChatPage() {
         )}
       </div>
 
-      {/* Mobile results */}
+      {/* Mobile bottom-sheet */}
       {done && kenniskaarten.length > 0 && (
-        <div className="lg:hidden border-t border-slate-200 bg-slate-50 print:border-0">
-          <ResultsPanel
-            analysis={analysis}
-            kenniskaarten={kenniskaarten}
-            primaryKaartId={primaryKaartId}
-            experts={displayExperts}
-            onContactExpert={(e) => setSelectedExpert(e)}
-            onNewConversation={resetChat}
-          />
-        </div>
+        <>
+          {/* Dim backdrop when full */}
+          {mobileSheet === "full" && (
+            <div
+              className="lg:hidden fixed inset-0 bg-black/30 z-30 print:hidden"
+              onClick={() => setMobileSheet("peek")}
+              aria-hidden
+            />
+          )}
+          <div
+            className={`lg:hidden fixed inset-x-0 bottom-0 z-40 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out print:hidden ${
+              mobileSheet === "hidden"
+                ? "translate-y-full"
+                : mobileSheet === "peek"
+                ? "translate-y-[calc(100%-180px)]"
+                : "translate-y-0"
+            }`}
+            style={{ maxHeight: "92vh", height: "92vh" }}
+          >
+            <button
+              onClick={() => setMobileSheet(mobileSheet === "full" ? "peek" : "full")}
+              className="w-full pt-2 pb-1 flex flex-col items-center"
+              aria-label={mobileSheet === "full" ? "Minimaliseer" : "Open"}
+            >
+              <div className="w-12 h-1.5 bg-slate-300 rounded-full" />
+            </button>
+            <div className="flex items-center justify-between px-5 pb-2 border-b border-slate-100">
+              <div>
+                <div className="text-sm font-semibold text-slate-900">Jouw resultaten</div>
+                <div className="text-[11px] text-slate-500">
+                  {kenniskaarten.length} kaart{kenniskaarten.length === 1 ? "" : "en"} &middot; {displayExperts.length} expert{displayExperts.length === 1 ? "" : "s"}
+                </div>
+              </div>
+              <button
+                onClick={() => setMobileSheet("hidden")}
+                className="text-slate-400 hover:text-slate-600 p-1"
+                aria-label="Sluiten"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto bg-gradient-to-b from-amber-50/30 to-white" style={{ height: "calc(92vh - 52px)" }}>
+              <ResultsPanel
+                analysis={analysis}
+                kenniskaarten={kenniskaarten}
+                primaryKaartId={primaryKaartId}
+                experts={displayExperts}
+                onContactExpert={(e) => setSelectedExpert(e)}
+                onNewConversation={resetChat}
+              />
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

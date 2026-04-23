@@ -46,7 +46,7 @@ function LoginForm() {
 
   if (sent) {
     return (
-      <div className="w-full max-w-md mx-auto bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+      <div className="w-full max-w-md mx-auto bg-white/90 backdrop-blur rounded-3xl border border-amber-100 p-8 shadow-lg shadow-amber-100/40">
         <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mb-5">
           <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -71,8 +71,8 @@ function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-md mx-auto bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
-      <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mb-5">
+    <div className="w-full max-w-md mx-auto bg-white/90 backdrop-blur rounded-3xl border border-amber-100 p-8 shadow-lg shadow-amber-100/40">
+      <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl flex items-center justify-center mb-5 shadow-md shadow-blue-600/20">
         <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
         </svg>
@@ -111,7 +111,7 @@ function LoginForm() {
         <button
           type="submit"
           disabled={submitting || !email}
-          className="w-full bg-blue-600 text-white font-medium py-2.5 rounded-lg text-sm hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors"
+          className="w-full bg-blue-600 text-white font-semibold py-3 rounded-xl text-[15px] hover:bg-blue-700 active:bg-blue-800 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors"
         >
           {submitting ? "Bezig…" : "Stuur loginlink"}
         </button>
@@ -128,7 +128,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-[#fefcf7] via-[#fef3e8] to-[#fefcf7] flex items-center justify-center px-4 py-12">
       <Suspense fallback={<div className="text-sm text-slate-500">Laden…</div>}>
         <LoginForm />
       </Suspense>

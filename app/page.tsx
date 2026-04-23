@@ -172,7 +172,7 @@ export default function Home() {
     <main className="flex flex-col min-h-[100dvh] bg-white">
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="bg-white border-b border-slate-100 px-6 py-4 sticky top-0 z-10">
+      <header className="bg-white/85 backdrop-blur border-b border-amber-100 px-6 py-4 sticky top-0 z-10">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <NoorAvatar size={32} />
@@ -188,7 +188,7 @@ export default function Home() {
       </header>
 
       {/* ── Hero ───────────────────────────────────────────────────────────── */}
-      <section className="px-6 py-20 bg-gradient-to-b from-blue-50/60 to-white text-center">
+      <section className="px-6 py-20 bg-gradient-to-b from-[#fef3e8] via-[#fefcf7] to-white text-center relative overflow-hidden">
         <div className="max-w-2xl mx-auto">
           <div className="flex justify-center mb-6">
             <NoorAvatar size={88} className="drop-shadow-md" />
@@ -257,13 +257,13 @@ export default function Home() {
       </section>
 
       {/* ── Voordelen ──────────────────────────────────────────────────────── */}
-      <section className="px-6 py-16 bg-slate-50">
+      <section className="px-6 py-16 bg-[#fefcf7]">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-2xl font-bold text-slate-800 text-center mb-2">Alles wat LesCoach voor je doet</h2>
           <p className="text-slate-500 text-center mb-12 text-sm">Gebouwd voor leerkrachten die geen tijd hebben om te zoeken</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {BENEFITS.map((b) => (
-              <div key={b.titel} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex gap-4">
+              <div key={b.titel} className="bg-white rounded-2xl p-5 border border-amber-100 shadow-sm hover:shadow-md transition-shadow flex gap-4">
                 <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shrink-0">
                   {b.icon}
                 </div>
@@ -288,7 +288,7 @@ export default function Home() {
               <div className="px-5 py-3 text-blue-300">Met LesCoach</div>
             </div>
             {VERGELIJK.map((v, i) => (
-              <div key={i} className={`grid grid-cols-2 text-sm border-t border-slate-100 ${i % 2 === 0 ? "bg-white" : "bg-slate-50"}`}>
+              <div key={i} className={`grid grid-cols-2 text-sm border-t border-amber-100 ${i % 2 === 0 ? "bg-white" : "bg-[#fefcf7]"}`}>
                 <div className="px-5 py-4 text-slate-500 border-r border-slate-100 flex gap-2 items-start">
                   <span className="text-red-400 shrink-0 mt-0.5">✗</span>
                   {v.zonder}
@@ -329,13 +329,13 @@ export default function Home() {
       </section>
 
       {/* ── Voor wie ───────────────────────────────────────────────────────── */}
-      <section className="px-6 py-16 bg-slate-50">
+      <section className="px-6 py-16 bg-[#fefcf7]">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-2xl font-bold text-slate-800 text-center mb-2">Voor wie is LesCoach?</h2>
           <p className="text-slate-500 text-center mb-10 text-sm">Iedereen in en om de klas</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
             {VOOR_WIE.map((v) => (
-              <div key={v.rol} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+              <div key={v.rol} className="bg-white rounded-2xl p-6 border border-amber-100 shadow-sm">
                 <div className="text-3xl mb-3">{v.emoji}</div>
                 <h3 className="font-bold text-slate-800 mb-3">{v.rol}</h3>
                 <ul className="space-y-2">
