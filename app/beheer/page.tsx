@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function BeheerPage() {
-  redirect("/beheer/experts");
+  redirect("/beheer/scholen");
 }

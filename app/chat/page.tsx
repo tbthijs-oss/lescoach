@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -686,6 +687,31 @@ export default function ChatPage() {
   const [done, setDone] = useState(false);
   const [selectedExpert, setSelectedExpert] = useState<Expert | null>(null);
   const [piiWarning, setPiiWarning] = useState(false);
+  const [authedUser, setAuthedUser] = useState<{ naam: string; rol: "admin" | "leraar"; schoolnaam?: string } | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled || !data.authenticated) return;
+        setAuthedUser({
+          naam: data.leraar?.naam || "",
+          rol: data.leraar?.rol || "leraar",
+          schoolnaam: data.school?.schoolnaam,
+        });
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+  }
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -840,6 +866,22 @@ export default function ChatPage() {
             </svg>
             Nieuw gesprek
           </button>
+          {authedUser && (
+            <div className="hidden md:flex items-center gap-2 pl-3 ml-1 border-l border-slate-200">
+              <div className="text-right">
+                <div className="text-xs font-medium text-slate-700">{authedUser.naam}</div>
+                {authedUser.schoolnaam ? <div className="text-[11px] text-slate-400 leading-tight">{authedUser.schoolnaam}</div> : null}
+              </div>
+              {authedUser.rol === "admin" && (
+                <Link href="/school" className="text-xs text-blue-600 hover:underline px-2 py-1 rounded-lg hover:bg-blue-50">Team</Link>
+              )}
+              <button onClick={handleLogout} className="text-xs text-slate-500 hover:text-red-600 px-2 py-1 rounded-lg hover:bg-red-50" title="Uitloggen">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </button>
+            </div>
+          )}
         </div>
       </header>
 

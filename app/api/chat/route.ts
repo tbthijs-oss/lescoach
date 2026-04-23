@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { searchKenniskaarten, matchExperts } from "@/lib/airtable";
 import { SYSTEM_PROMPT } from "@/lib/systemPrompt";
 import { filterPiiFromMessages, summarizeDetections } from "@/lib/pii";
+import { parseSession, AUTH_COOKIE } from "@/lib/auth";
+import { getLeraar, getSchool } from "@/lib/authDb";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -81,6 +83,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Geen berichten meegegeven" }, { status: 400 });
     }
 
+    // ── Resolve sessie (geen harde eis — middleware heeft dit al gedaan voor
+    // page-navigaties; hier alleen om naam/school in de prompt te injecteren)
+    let personalizedSystem = SYSTEM_PROMPT;
+    try {
+      const cookie = request.cookies.get(AUTH_COOKIE.name);
+      const session = parseSession(cookie?.value);
+      if (session) {
+        const leraar = await getLeraar(session.leraarId);
+        if (leraar && leraar.status !== "geblokkeerd") {
+          const school = leraar.schoolId ? await getSchool(leraar.schoolId) : null;
+          const preamble = `\n\n## Context over de gebruiker\nJe praat met ${leraar.naam}${school ? `, werkzaam op ${school.schoolnaam}` : ""}. Je mag deze naam gebruiken als dat natuurlijk valt, maar forceer het niet en herhaal het zeker niet in elk bericht.`;
+          personalizedSystem = SYSTEM_PROMPT + preamble;
+        }
+      }
+    } catch (err) {
+      console.warn("[chat] kon sessie-context niet ophalen:", err);
+    }
+
     const {
       messages: safeMessages,
       anyDetected: piiDetected,
@@ -121,7 +141,7 @@ export async function POST(request: NextRequest) {
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 1500,
-      system: SYSTEM_PROMPT,
+      system: personalizedSystem,
       tools,
       messages: safeMessages,
     });
@@ -168,7 +188,7 @@ export async function POST(request: NextRequest) {
           const retryResponse = await client.messages.create({
             model: "claude-sonnet-4-6",
             max_tokens: 500,
-            system: SYSTEM_PROMPT,
+            system: personalizedSystem,
             messages: retryMessages,
           });
 
@@ -221,7 +241,7 @@ export async function POST(request: NextRequest) {
         const finalResponse = await client.messages.create({
           model: "claude-sonnet-4-6",
           max_tokens: 2000,
-          system: SYSTEM_PROMPT,
+          system: personalizedSystem,
           tools,
           messages: messagesWithTool,
         });

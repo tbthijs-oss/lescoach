@@ -6,6 +6,15 @@ import { useRouter } from "next/navigation";
 
 const TABS = [
   {
+    href: "/beheer/scholen",
+    label: "Scholen",
+    icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm0 0v-7.5" />
+      </svg>
+    ),
+  },
+  {
     href: "/beheer/experts",
     label: "Experts",
     icon: (
