@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { findExpertByEmail, createExpertMagicLink } from "@/lib/expertsDb";
 import { generateToken, magicLinkExpiry } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
+import { rateLimit, clientIdFromRequest, rateLimitResponse } from "@/lib/rateLimit";
 
 /**
  * POST /api/expert/auth/request
@@ -11,6 +12,10 @@ import { sendEmail } from "@/lib/email";
  * wordt er daadwerkelijk een magic link verstuurd.
  */
 export async function POST(request: NextRequest) {
+    // Rate limit: 5 magic-link-requests/min per IP. Voorkomt e-mail-bombing.
+  const rl = rateLimit(`auth:${clientIdFromRequest(request)}`, 5, 60_000);
+  if (!rl.ok) return rateLimitResponse(rl) as unknown as Response;
+
   try {
     const body = await request.json().catch(() => ({}));
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";

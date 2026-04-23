@@ -90,6 +90,8 @@ export async function POST(request: NextRequest) {
     let personalizedSystem = SYSTEM_PROMPT;
     let leraarIdForLog: string | null = null;
     let schoolIdForLog: string | null = null;
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
     try {
       const cookie = request.cookies.get(AUTH_COOKIE.name);
       const session = parseSession(cookie?.value);
@@ -151,6 +153,8 @@ export async function POST(request: NextRequest) {
       tools,
       messages: safeMessages,
     });
+    totalInputTokens += response.usage?.input_tokens ?? 0;
+    totalOutputTokens += response.usage?.output_tokens ?? 0;
 
     if (response.stop_reason === "tool_use") {
       const toolUseBlock = response.content.find((b) => b.type === "tool_use");
@@ -197,6 +201,8 @@ export async function POST(request: NextRequest) {
             system: personalizedSystem,
             messages: retryMessages,
           });
+          totalInputTokens += retryResponse.usage?.input_tokens ?? 0;
+          totalOutputTokens += retryResponse.usage?.output_tokens ?? 0;
 
           const retryText = retryResponse.content.find((b) => b.type === "text");
           const retryRaw = retryText?.type === "text" ? retryText.text : "";
@@ -251,6 +257,8 @@ export async function POST(request: NextRequest) {
           tools,
           messages: messagesWithTool,
         });
+        totalInputTokens += finalResponse.usage?.input_tokens ?? 0;
+        totalOutputTokens += finalResponse.usage?.output_tokens ?? 0;
 
         const textContent = finalResponse.content.find((b) => b.type === "text");
         const rawText = textContent?.type === "text" ? textContent.text : "";

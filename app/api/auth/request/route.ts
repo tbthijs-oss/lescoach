@@ -6,6 +6,7 @@ import {
 } from "@/lib/authDb";
 import { generateToken, magicLinkExpiry } from "@/lib/auth";
 import { sendEmail, magicLinkEmail } from "@/lib/email";
+import { rateLimit, clientIdFromRequest, rateLimitResponse } from "@/lib/rateLimit";
 
 /**
  * POST /api/auth/request
@@ -16,6 +17,10 @@ import { sendEmail, magicLinkEmail } from "@/lib/email";
  * om email-enumeration te voorkomen.
  */
 export async function POST(request: NextRequest) {
+    // Rate limit: 5 magic-link-requests/min per IP. Voorkomt e-mail-bombing.
+  const rl = rateLimit(`auth:${clientIdFromRequest(request)}`, 5, 60_000);
+  if (!rl.ok) return rateLimitResponse(rl) as unknown as Response;
+
   try {
     const body = await request.json().catch(() => ({}));
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";

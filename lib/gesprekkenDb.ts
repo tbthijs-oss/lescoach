@@ -43,6 +43,8 @@ export interface Gesprek {
   categorie: string;
   kenniskaartTitels: string;
   datum: string;
+  tokensIn: number;
+  tokensOut: number;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -58,6 +60,8 @@ function parseGesprek(r: AirtableRecord<any>): Gesprek {
     categorie: f["Categorie"] || "",
     kenniskaartTitels: f["Kenniskaarten"] || "",
     datum: f["Datum"] || r.createdTime || "",
+    tokensIn: Number(f["TokensIn"] || 0),
+    tokensOut: Number(f["TokensOut"] || 0),
   };
 }
 
@@ -71,6 +75,8 @@ export async function logGesprek(input: {
   zoekterm: string;
   categorie: string;
   kenniskaartTitels: string[];
+  tokensIn?: number;
+  tokensOut?: number;
 }): Promise<void> {
   try {
     const fields: Record<string, unknown> = {
@@ -79,6 +85,8 @@ export async function logGesprek(input: {
       Kenniskaarten: input.kenniskaartTitels.join(", ").slice(0, 1000),
       Datum: new Date().toISOString(),
     };
+    if (typeof input.tokensIn === "number") fields["TokensIn"] = input.tokensIn;
+    if (typeof input.tokensOut === "number") fields["TokensOut"] = input.tokensOut;
     if (input.schoolId) fields["School"] = [input.schoolId];
     if (input.leraarId) fields["Leraar"] = [input.leraarId];
     await at(tableUrl("Gesprekken"), {

@@ -147,7 +147,9 @@ let expertsCacheTime = 0;
 
 export async function getAllExperts(): Promise<Expert[]> {
   const now = Date.now();
-  if (expertsCache && now - expertsCacheTime < 3600_000) return expertsCache;
+  // 5 min TTL: low enough that self-service edits via /expert/profiel land quickly,
+  // high enough to absorb chat traffic without hammering Airtable.
+  if (expertsCache && now - expertsCacheTime < 300_000) return expertsCache;
 
   const response = await fetch(
     `${EXPERTS_URL}?filterByFormula={Beschikbaar}`,
