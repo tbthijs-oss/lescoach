@@ -112,8 +112,10 @@ export interface Expert {
   taal: string[];
 }
 
-// Table ID for Experts table (created 2026-04-20)
-const EXPERTS_TABLE_ID = "tblX0HLiRT5lSDiYz";
+// Table ID for Experts table in the LesCoach base (appUffpnWXsdmrhiw).
+// Overridable via AIRTABLE_EXPERTS_TABLE_ID env var for forked bases.
+export const EXPERTS_TABLE_ID =
+  process.env.AIRTABLE_EXPERTS_TABLE_ID || "tbluWjE1A4oVazNDR";
 const EXPERTS_URL = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${EXPERTS_TABLE_ID}`;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

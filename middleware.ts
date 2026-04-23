@@ -23,12 +23,13 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // ── Leraar-auth routes (/chat, /school, /api/chat, /api/contact-expert)
+  // ── Leraar-auth routes (/chat, /school, /api/chat, /api/contact-expert, /api/school)
   const requiresLeraarAuth =
     pathname.startsWith("/chat") ||
     pathname.startsWith("/school") ||
     pathname.startsWith("/api/chat") ||
-    pathname.startsWith("/api/contact-expert");
+    pathname.startsWith("/api/contact-expert") ||
+    pathname.startsWith("/api/school");
 
   if (requiresLeraarAuth) {
     const session = request.cookies.get("lescoach-leraar");
@@ -44,6 +45,24 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  // ── Expert-auth routes (/expert/profiel, /api/expert/profiel)
+  // De /expert/login en /expert/verify zijn publiek.
+  const requiresExpertAuth =
+    pathname.startsWith("/expert/profiel") ||
+    pathname === "/api/expert/profiel" ||
+    pathname.startsWith("/api/expert/profiel/");
+
+  if (requiresExpertAuth) {
+    const session = request.cookies.get("lescoach-expert");
+    const hasSession = session?.value && session.value.split("|").length === 3;
+    if (!hasSession) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+      }
+      return NextResponse.redirect(new URL("/expert/login", request.url));
+    }
+  }
+
   return NextResponse.next();
 }
 
@@ -55,5 +74,10 @@ export const config = {
     "/school/:path*",
     "/api/chat/:path*",
     "/api/contact-expert/:path*",
+    "/api/school/:path*",
+    "/expert/profiel",
+    "/expert/profiel/:path*",
+    "/api/expert/profiel",
+    "/api/expert/profiel/:path*",
   ],
 };

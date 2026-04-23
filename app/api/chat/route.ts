@@ -5,6 +5,7 @@ import { SYSTEM_PROMPT } from "@/lib/systemPrompt";
 import { filterPiiFromMessages, summarizeDetections } from "@/lib/pii";
 import { parseSession, AUTH_COOKIE } from "@/lib/auth";
 import { getLeraar, getSchool } from "@/lib/authDb";
+import { logGesprek } from "@/lib/gesprekkenDb";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -84,14 +85,19 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Resolve sessie (geen harde eis — middleware heeft dit al gedaan voor
-    // page-navigaties; hier alleen om naam/school in de prompt te injecteren)
+    // page-navigaties; hier alleen om naam/school in de prompt te injecteren +
+    // om de logGesprek-call straks van meta te voorzien)
     let personalizedSystem = SYSTEM_PROMPT;
+    let leraarIdForLog: string | null = null;
+    let schoolIdForLog: string | null = null;
     try {
       const cookie = request.cookies.get(AUTH_COOKIE.name);
       const session = parseSession(cookie?.value);
       if (session) {
         const leraar = await getLeraar(session.leraarId);
         if (leraar && leraar.status !== "geblokkeerd") {
+          leraarIdForLog = leraar.id;
+          schoolIdForLog = leraar.schoolId || null;
           const school = leraar.schoolId ? await getSchool(leraar.schoolId) : null;
           const preamble = `\n\n## Context over de gebruiker\nJe praat met ${leraar.naam}${school ? `, werkzaam op ${school.schoolnaam}` : ""}. Je mag deze naam gebruiken als dat natuurlijk valt, maar forceer het niet en herhaal het zeker niet in elk bericht.`;
           personalizedSystem = SYSTEM_PROMPT + preamble;
@@ -265,6 +271,20 @@ export async function POST(request: NextRequest) {
           message && message.trim().length > 0
             ? message
             : "Ik heb een aantal kenniskaarten gevonden die bij dit beeld passen. Rechts zie je wat Noor voor je heeft gevonden. Wil je persoonlijk advies op maat? Via de knop kun je direct contact opnemen met een expert.";
+
+        // Analytics: log dit gesprek (non-blocking, niet awaiten).
+        try {
+          const primaryKaart = kenniskaarten.find((k) => k.id === primaryKaartId) || kenniskaarten[0];
+          void logGesprek({
+            schoolId: schoolIdForLog,
+            leraarId: leraarIdForLog,
+            zoekterm: input.zoekterm,
+            categorie: primaryKaart?.categorie || "",
+            kenniskaartTitels: kenniskaarten.map((k) => k.titel),
+          });
+        } catch (err) {
+          console.warn("[chat] logGesprek-prep mislukt:", err);
+        }
 
         return NextResponse.json({
           message: safeMessage,

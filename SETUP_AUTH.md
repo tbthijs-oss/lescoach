@@ -42,6 +42,34 @@ Maak deze tabellen handmatig aan in de LesCoach-base (dezelfde base als Kenniska
 | `Gebruikt op` | Date + time | Leeg zolang niet gebruikt; single-use |
 | `Aangemaakt op` | Created time | |
 
+### Tabel: `Gesprekken`
+
+Logt elk afgerond Noor-gesprek voor de `/school/gebruik` analytics-pagina.
+Geen inhoud van berichten — alleen zoekterm, categorie, kenniskaarten, meta.
+
+| Veldnaam | Type | Opmerking |
+| --- | --- | --- |
+| `Zoekterm` | Single line text | Wat Noor als zoekterm gebruikte |
+| `Categorie` | Single line text | Primaire categorie van de gevonden kaart |
+| `Kenniskaarten` | Long text | Comma-separated titels van gematchte kaarten |
+| `School` | Link to `Scholen` | Max 1 — null voor anonieme gesprekken |
+| `Leraar` | Link to `Leraren` | Max 1 — null voor anonieme gesprekken |
+| `Datum` | Date + time | ISO timestamp |
+| `Aangemaakt op` | Created time | |
+
+### Tabel: `ExpertMagicLinks`
+
+Aparte tabel voor de experten-login (via `/expert/login`), zodat de
+leraren-flow ongemoeid blijft.
+
+| Veldnaam | Type | Opmerking |
+| --- | --- | --- |
+| `Token` | Single line text | Primary field, lange willekeurige string |
+| `Expert` | Link to `Experts` | Max 1 record |
+| `Verloopt op` | Date + time | UTC — token is 15 minuten geldig |
+| `Gebruikt op` | Date + time | Leeg zolang niet gebruikt; single-use |
+| `Aangemaakt op` | Created time | |
+
 ## 2. Environment variables
 
 Voeg toe in Vercel Dashboard → Project → Settings → Environment Variables:

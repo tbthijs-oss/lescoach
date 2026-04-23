@@ -1,6 +1,6 @@
+import { EXPERTS_TABLE_ID } from "@/lib/airtable";
 import { NextRequest, NextResponse } from "next/server";
 
-const EXPERTS_TABLE_ID = "tblX0HLiRT5lSDiYz";
 
 function expertUrl(id: string) {
   return `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${EXPERTS_TABLE_ID}/${id}`;
