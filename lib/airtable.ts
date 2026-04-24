@@ -39,18 +39,53 @@ function parseKenniskaartRecord(record: any): Kenniskaart {
   };
 }
 
-export async function getAllKenniskaarten(): Promise<Kenniskaart[]> {
-  const response = await fetch(KENNISKAARTEN_URL, {
+async function fetchKenniskaartenFromUrl(url: string): Promise<{ ok: boolean; status: number; records: unknown[]; body?: string }> {
+  const response = await fetch(url, {
     headers: { Authorization: `Bearer ${process.env.AIRTABLE_API_TOKEN}` },
     next: { revalidate: 3600 },
   });
   if (!response.ok) {
-    console.error("Airtable kenniskaarten error:", response.status, await response.text());
-    return [];
+    const body = await response.text();
+    return { ok: false, status: response.status, records: [], body };
   }
   const data = await response.json();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (data.records || []).map((r: any) => parseKenniskaartRecord(r));
+  return { ok: true, status: 200, records: data.records || [] };
+}
+
+export async function getAllKenniskaarten(): Promise<Kenniskaart[]> {
+  // 1Ã¨ poging: gebruik wat in de env var staat (ID Ã³f naam).
+  const primary = await fetchKenniskaartenFromUrl(KENNISKAARTEN_URL);
+  if (primary.ok && primary.records.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return primary.records.map((r: any) => parseKenniskaartRecord(r));
+  }
+
+  // 2Ã¨ poging: als de primary call faalde of 0 records gaf, probeer expliciet
+  // de tabelnaam "Kenniskaarten". Dit vangt op dat het env var een verouderde
+  // tbl-id bevat nadat een base is geherimporteerd.
+  if (!primary.ok) {
+    console.warn(
+      `[airtable] primary kenniskaarten fetch faalde (${primary.status}); val terug op tabelnaam. Body: ${(primary.body || "").slice(0, 200)}`
+    );
+  } else if (primary.records.length === 0 && KENNISKAARTEN_TABLE !== "Kenniskaarten") {
+    console.warn(
+      `[airtable] primary fetch gaf 0 records voor '${KENNISKAARTEN_TABLE}'; val terug op tabelnaam "Kenniskaarten".`
+    );
+  }
+
+  if (KENNISKAARTEN_TABLE !== "Kenniskaarten") {
+    const fallbackUrl = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent("Kenniskaarten")}`;
+    const fallback = await fetchKenniskaartenFromUrl(fallbackUrl);
+    if (fallback.ok) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return fallback.records.map((r: any) => parseKenniskaartRecord(r));
+    }
+    console.error(
+      `[airtable] fallback op "Kenniskaarten" ook gefaald (${fallback.status}): ${(fallback.body || "").slice(0, 200)}`
+    );
+  }
+
+  return [];
 }
 
 export async function searchKenniskaarten(
