@@ -39,6 +39,13 @@ function parseKenniskaartRecord(record: any): Kenniskaart {
   };
 }
 
+// In-memory cache — mirrored pattern van experts (5 min TTL).
+// Airtable-calls zijn duur genoeg om vermijden, en kenniskaarten muteren
+// zelden (~1 keer per week via beheer-flow).
+let kennisCache: Kenniskaart[] | null = null;
+let kennisCacheTime = 0;
+const KENNIS_CACHE_TTL_MS = 5 * 60 * 1000;
+
 async function fetchKenniskaartenFromUrl(url: string): Promise<{ ok: boolean; status: number; records: unknown[]; body?: string }> {
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${process.env.AIRTABLE_API_TOKEN}` },
@@ -53,16 +60,22 @@ async function fetchKenniskaartenFromUrl(url: string): Promise<{ ok: boolean; st
 }
 
 export async function getAllKenniskaarten(): Promise<Kenniskaart[]> {
-  // 1Ã¨ poging: gebruik wat in de env var staat (ID Ã³f naam).
+  const now = Date.now();
+  if (kennisCache && now - kennisCacheTime < KENNIS_CACHE_TTL_MS) {
+    return kennisCache;
+  }
+
+  // 1e poging: gebruik wat in de env var staat (ID Ã³f naam).
   const primary = await fetchKenniskaartenFromUrl(KENNISKAARTEN_URL);
   if (primary.ok && primary.records.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return primary.records.map((r: any) => parseKenniskaartRecord(r));
+    kennisCache = primary.records.map((r: any) => parseKenniskaartRecord(r));
+    kennisCacheTime = now;
+    return kennisCache;
   }
 
-  // 2Ã¨ poging: als de primary call faalde of 0 records gaf, probeer expliciet
-  // de tabelnaam "Kenniskaarten". Dit vangt op dat het env var een verouderde
-  // tbl-id bevat nadat een base is geherimporteerd.
+  // 2e poging: fallback op tabelnaam "Kenniskaarten" — self-healing als
+  // het env var een verouderde tbl-id bevat na base-reimport.
   if (!primary.ok) {
     console.warn(
       `[airtable] primary kenniskaarten fetch faalde (${primary.status}); val terug op tabelnaam. Body: ${(primary.body || "").slice(0, 200)}`
@@ -78,16 +91,18 @@ export async function getAllKenniskaarten(): Promise<Kenniskaart[]> {
     const fallback = await fetchKenniskaartenFromUrl(fallbackUrl);
     if (fallback.ok) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return fallback.records.map((r: any) => parseKenniskaartRecord(r));
+      kennisCache = fallback.records.map((r: any) => parseKenniskaartRecord(r));
+      kennisCacheTime = now;
+      return kennisCache;
     }
     console.error(
       `[airtable] fallback op "Kenniskaarten" ook gefaald (${fallback.status}): ${(fallback.body || "").slice(0, 200)}`
     );
   }
 
+  // Fallback faalde ook — we cachen NIET om op volgende call opnieuw te proberen.
   return [];
 }
-
 export async function searchKenniskaarten(
   query: string,
   trefwoorden: string[] = []
@@ -125,8 +140,13 @@ export async function searchKenniskaarten(
     .map((s) => s.kenniskaart);
 
   // Fallback: if nothing matched, return the top 3 by alphabetical order
-  // so the conversation always produces some result
+  // so the conversation always produces some result. We log this as a
+  // "coverage miss" — it tells us which queries don't match any kenniskaart,
+  // which is signal for content gaps we should fill.
   if (matched.length === 0) {
+    console.warn(
+      `[coverage-miss] geen kenniskaart-match voor zoekterm="${query}" trefwoorden="${trefwoorden.join(",")}"`
+    );
     return all.slice(0, 3);
   }
 

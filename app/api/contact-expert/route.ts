@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: "LesCoach <onboarding@resend.dev>",
+          from: process.env.RESEND_FROM || "Noor <noor@lescoach.nl>",
           to: [expertEmail],
           reply_to: contact.email,
           subject: `LesCoach aanvraag: ${contact.naam} – ${contact.school}`,

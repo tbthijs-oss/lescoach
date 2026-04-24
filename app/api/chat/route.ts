@@ -360,9 +360,24 @@ export async function POST(request: NextRequest) {
       piiFiltered: piiDetected,
     });
   } catch (error) {
-    console.error("Chat API error:", error);
+    // Structured error logging — we classify waar het fout ging zodat ops
+    // in Vercel-logs direct kan filteren op source zonder stacktraces te lezen.
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
+    let source: "airtable" | "anthropic" | "resend" | "auth" | "unknown" = "unknown";
+    const lower = message.toLowerCase();
+    if (lower.includes("airtable") || lower.includes("appu") || lower.includes("tbl")) source = "airtable";
+    else if (lower.includes("anthropic") || lower.includes("claude") || lower.includes("rate_limit")) source = "anthropic";
+    else if (lower.includes("resend")) source = "resend";
+    else if (lower.includes("session") || lower.includes("cookie") || lower.includes("unauth")) source = "auth";
+    console.error(
+      JSON.stringify({ level: "error", scope: "chat-api", source, message, stack: stack?.split("\n").slice(0, 5) })
+    );
     return NextResponse.json(
-      { error: "Er is iets misgegaan. Probeer het opnieuw." },
+      {
+        error: "Er is iets misgegaan. Probeer het opnieuw.",
+        errorSource: source,
+      },
       { status: 500 }
     );
   }
