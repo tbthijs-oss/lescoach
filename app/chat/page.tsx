@@ -51,6 +51,7 @@ interface ContactForm {
 interface NoorAnalysis {
   profileLine: string;
   primaryKaartTitel: string;
+  alternativeKaartTitels: string[];
   insight: string;
   acties: string[];
   overleg: string;
@@ -566,6 +567,7 @@ function ResultsPanel({
   analysis,
   kenniskaarten,
   primaryKaartId,
+  alternativeKaartIds,
   experts,
   onContactExpert,
   onNewConversation,
@@ -573,12 +575,22 @@ function ResultsPanel({
   analysis: NoorAnalysis | null;
   kenniskaarten: Kenniskaart[];
   primaryKaartId: string | null;
+  alternativeKaartIds: string[];
   experts: Expert[];
   onContactExpert: (e: Expert) => void;
   onNewConversation: () => void;
 }) {
   const primary = kenniskaarten.find((k) => k.id === primaryKaartId) ?? kenniskaarten[0];
-  const overige = kenniskaarten.filter((k) => k.id !== primary?.id);
+  // Top-3: als Noor alternatieve kaart-ids heeft meegegeven (= twijfel over welke
+  // primair is), behandelen we die als aanvullende top-hits en tonen we ze direct
+  // naast de primaire kaart in plaats van ingeklapt bij de overige kaarten.
+  const topAlternatives: Kenniskaart[] = [];
+  for (const id of alternativeKaartIds) {
+    const k = kenniskaarten.find((x) => x.id === id);
+    if (k && k.id !== primary?.id) topAlternatives.push(k);
+  }
+  const topIds = new Set<string>([primary?.id, ...topAlternatives.map((k) => k.id)].filter(Boolean) as string[]);
+  const overige = kenniskaarten.filter((k) => !topIds.has(k.id));
 
   // Build share text for WhatsApp / email — compact summary for IB'er
   const shareText = [
@@ -742,16 +754,26 @@ function ResultsPanel({
           </div>
         )}
 
-        {/* All kenniskaarten — primary first, rest collapsed */}
+        {/* All kenniskaarten — primary first, top alternatives styled as co-primary, rest collapsed */}
         {kenniskaarten.length > 0 && (
           <div className="pt-2">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3 px-1">
-              Alle kenniskaarten ({kenniskaarten.length})
+              {topAlternatives.length > 0
+                ? `Top ${1 + topAlternatives.length} kenniskaarten (van ${kenniskaarten.length})`
+                : `Alle kenniskaarten (${kenniskaarten.length})`}
             </h3>
+            {topAlternatives.length > 0 && (
+              <p className="text-xs text-slate-500 mb-3 px-1">
+                Noor twijfelt tussen deze kaarten — ze passen allemaal bij het beeld. Lees ze naast elkaar om te kiezen wat voor jouw leerling het sterkst resoneert.
+              </p>
+            )}
             <div className="space-y-3">
               {primary && (
                 <KenniskaartCard kaart={primary} isPrimary defaultOpen={false} />
               )}
+              {topAlternatives.map((k) => (
+                <KenniskaartCard key={k.id} kaart={k} isPrimary defaultOpen={false} />
+              ))}
               {overige.map((k) => (
                 <KenniskaartCard key={k.id} kaart={k} />
               ))}
@@ -824,6 +846,7 @@ export default function ChatPage() {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [analysis, setAnalysis] = useState<NoorAnalysis | null>(null);
   const [primaryKaartId, setPrimaryKaartId] = useState<string | null>(null);
+  const [alternativeKaartIds, setAlternativeKaartIds] = useState<string[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [started, setStarted] = useState(false);
@@ -934,6 +957,9 @@ export default function ChatPage() {
       }
       if (data.primaryKaartId) {
         setPrimaryKaartId(data.primaryKaartId as string);
+      }
+      if (Array.isArray(data.alternativeKaartIds)) {
+        setAlternativeKaartIds(data.alternativeKaartIds as string[]);
       }
     } catch {
       setMessages([...newMessages, { role: "assistant", content: "Sorry, er is iets misgegaan. Probeer het opnieuw." }]);
@@ -1094,6 +1120,23 @@ export default function ChatPage() {
             <div ref={bottomRef} />
           </div>
 
+          {/* Subtle intake progress — visible until zoek_kenniskaarten returns results */}
+          {!done && messages.filter((m) => m.role === "user").length >= 1 && messages.filter((m) => m.role === "user").length < 4 && (
+            <div className="shrink-0 text-center px-4 pb-1 pt-0.5">
+              <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-400">
+                <span className="flex gap-0.5">
+                  {[0,1,2,3].map((i) => (
+                    <span
+                      key={i}
+                      className={`w-1.5 h-1.5 rounded-full ${i < messages.filter((m) => m.role === "user").length ? "bg-blue-500" : "bg-slate-300"}`}
+                    />
+                  ))}
+                </span>
+                <span>Intake — max 4 vragen</span>
+              </span>
+            </div>
+          )}
+
           {/* Mobile: done banner (sheet trigger) */}
           {done && kenniskaarten.length > 0 && mobileSheet === "hidden" && (
             <div className="lg:hidden shrink-0 mx-4 mb-3">
@@ -1180,6 +1223,7 @@ export default function ChatPage() {
               analysis={analysis}
               kenniskaarten={kenniskaarten}
               primaryKaartId={primaryKaartId}
+              alternativeKaartIds={alternativeKaartIds}
               experts={displayExperts}
               onContactExpert={(e) => setSelectedExpert(e)}
               onNewConversation={resetChat}
@@ -1238,6 +1282,7 @@ export default function ChatPage() {
                 analysis={analysis}
                 kenniskaarten={kenniskaarten}
                 primaryKaartId={primaryKaartId}
+              alternativeKaartIds={alternativeKaartIds}
                 experts={displayExperts}
                 onContactExpert={(e) => setSelectedExpert(e)}
                 onNewConversation={resetChat}

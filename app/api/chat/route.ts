@@ -17,6 +17,7 @@ interface Message {
 export interface NoorAnalysis {
   profileLine: string;
   primaryKaartTitel: string;
+  alternativeKaartTitels: string[];
   insight: string;
   acties: string[];
   overleg: string;
@@ -63,6 +64,9 @@ function parseNoorData(text: string): {
       acties: Array.isArray(raw.acties)
         ? raw.acties.map((a) => String(a)).filter(Boolean)
         : [],
+      alternativeKaartTitels: Array.isArray(raw.alternativeKaartTitels)
+        ? raw.alternativeKaartTitels.map((t) => String(t)).filter(Boolean).slice(0, 2)
+        : [],
       overleg: String(raw.overleg ?? ""),
       signaal: String(raw.signaal ?? ""),
       contextChips: Array.isArray(raw.contextChips)
@@ -107,6 +111,14 @@ export async function POST(request: NextRequest) {
       }
     } catch (err) {
       console.warn("[chat] kon sessie-context niet ophalen:", err);
+    }
+
+    // Tel hoeveel user-turns er al zijn. Na 5 is de intake verplicht
+    // afgerond: we forceren Noor om meteen zoek_kenniskaarten aan te roepen
+    // via een directieve aanvulling op de system prompt.
+    const userTurnCount = messages.filter((m) => m.role === "user").length;
+    if (userTurnCount >= 4) {
+      personalizedSystem += `\n\n## DIRECTIEF — intake is klaar\nDe leerkracht heeft nu ${userTurnCount} berichten gegeven. Je mag GEEN nieuwe vraag meer stellen. Je volgende bericht is de check-in van Fase 1B (\"Ik hoor: ... Ik ga nu de kenniskaarten erbij pakken — één momentje.\") en direct daarna roep je zoek_kenniskaarten aan met wat je hebt. Onvolledige info is geen blocker — werk met wat voorligt.`;
     }
 
     const {
@@ -275,6 +287,23 @@ export async function POST(request: NextRequest) {
           primaryKaartId = kenniskaarten[0].id;
         }
 
+        // Resolve alternative top-3 kaart-ids. Als Noor aangaf onzeker te zijn
+        // over welke kaart primair is, vullen we een array van max 2 extra
+        // kaart-ids zodat de UI een top-3 kan tonen in plaats van geforceerd één.
+        let alternativeKaartIds: string[] = [];
+        if (analysis?.alternativeKaartTitels?.length) {
+          const seen = new Set([primaryKaartId]);
+          for (const t of analysis.alternativeKaartTitels) {
+            const needle = t.trim().toLowerCase();
+            const found = kenniskaarten.find((k) => k.titel.trim().toLowerCase() === needle);
+            if (found && !seen.has(found.id)) {
+              alternativeKaartIds.push(found.id);
+              seen.add(found.id);
+            }
+            if (alternativeKaartIds.length >= 2) break;
+          }
+        }
+
         const safeMessage =
           message && message.trim().length > 0
             ? message
@@ -301,6 +330,7 @@ export async function POST(request: NextRequest) {
           experts,
           analysis,
           primaryKaartId,
+          alternativeKaartIds,
           done: true,
           piiFiltered: piiDetected,
         });
