@@ -827,8 +827,21 @@ function ResultsPanel({
           </button>
         </div>
 
-        {/* Print-only footer */}
-        <div className="hidden print:block pt-8 text-[10px] text-slate-500 border-t border-slate-200 mt-8">
+        {/* Disclaimer — always visible, niet alleen bij printen */}
+        <div className="mt-6 pt-4 border-t border-slate-200 text-[11px] leading-relaxed text-slate-500">
+          <div className="flex gap-2 items-start">
+            <svg className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <strong className="text-slate-600">Noor ondersteunt jou als leerkracht; ze stelt geen diagnose en vervangt geen zorgprofessional.</strong>
+              {" "}Bij zorg over een leerling: bespreek met IB&rsquo;er, zorgteam of jeugdarts. Bij vermoeden van onveiligheid: Veilig Thuis 0800-2000.
+            </div>
+          </div>
+        </div>
+
+        {/* Print-only extra footer */}
+        <div className="hidden print:block pt-4 text-[10px] text-slate-500 mt-4">
           Rapport gegenereerd door LesCoach / Noor. Geen medische diagnose.
           Voor vragen over een leerling: bespreek met IB'er, zorgteam, of neem contact op met een aangesloten expert via lescoach.nl.
         </div>
