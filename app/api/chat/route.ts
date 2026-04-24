@@ -6,6 +6,7 @@ import { filterPiiFromMessages, summarizeDetections } from "@/lib/pii";
 import { parseSession, AUTH_COOKIE } from "@/lib/auth";
 import { getLeraar, getSchool } from "@/lib/authDb";
 import { logGesprek } from "@/lib/gesprekkenDb";
+import { logMeldcodeSignaal } from "@/lib/meldcodeDb";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -317,18 +318,44 @@ export async function POST(request: NextRequest) {
             ? message
             : "Ik heb een aantal kenniskaarten gevonden die bij dit beeld passen. Rechts zie je wat Noor voor je heeft gevonden. Wil je persoonlijk advies op maat? Via de knop kun je direct contact opnemen met een expert.";
 
-        // Analytics: log dit gesprek (non-blocking, niet awaiten).
+        // Analytics: log dit gesprek + eventueel meldcode-signaal.
+        // We AWAITEN logGesprek hier kort zodat we de id hebben voor de meldcode-link.
+        // Als het te traag is, loggen we zonder link in de catch.
+        let gesprekIdForMeldcode: string | null = null;
         try {
           const primaryKaart = kenniskaarten.find((k) => k.id === primaryKaartId) || kenniskaarten[0];
-          void logGesprek({
+          // Complete berichtenreeks: input + de nieuwe assistant-reply
+          const berichten = [
+            ...safeMessages.map((m) => ({ role: m.role, content: typeof m.content === "string" ? m.content : "" })),
+            { role: "assistant" as const, content: safeMessage },
+          ].filter((m) => m.role === "user" || m.role === "assistant");
+          gesprekIdForMeldcode = await logGesprek({
             schoolId: schoolIdForLog,
             leraarId: leraarIdForLog,
             zoekterm: input.zoekterm,
             categorie: primaryKaart?.categorie || "",
             kenniskaartTitels: kenniskaarten.map((k) => k.titel),
+            tokensIn: totalInputTokens,
+            tokensOut: totalOutputTokens,
+            primaryKaart: analysis?.primaryKaartTitel || primaryKaart?.titel || "",
+            samenvatting: analysis?.profileLine || "",
+            berichten: berichten as { role: "user" | "assistant"; content: string }[],
           });
         } catch (err) {
           console.warn("[chat] logGesprek-prep mislukt:", err);
+        }
+
+        // Meldcode-signaal: wanneer Noor iets in het signaal-veld zet, loggen we
+        // dat naar de MeldcodeSignalen-tabel voor review door aandachts-
+        // functionaris. Non-blocking: mag de chat-flow niet vertragen.
+        if (analysis?.signaal && analysis.signaal.trim().length > 0) {
+          void logMeldcodeSignaal({
+            signaalTekst: analysis.signaal,
+            samenvatting: analysis.profileLine || input.zoekterm,
+            leraarId: leraarIdForLog,
+            schoolId: schoolIdForLog,
+            gesprekId: gesprekIdForMeldcode,
+          });
         }
 
         return NextResponse.json({

@@ -35,6 +35,11 @@ async function at<T>(url: string, init?: RequestInit): Promise<T> {
 interface AirtableRecord<T> { id: string; fields: T; createdTime?: string }
 interface AirtableListResponse<T> { records: AirtableRecord<T>[]; offset?: string }
 
+export interface GesprekBericht {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export interface Gesprek {
   id: string;
   schoolId: string | null;
@@ -45,6 +50,9 @@ export interface Gesprek {
   datum: string;
   tokensIn: number;
   tokensOut: number;
+  primaryKaart: string;
+  samenvatting: string;
+  berichten: GesprekBericht[];
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -52,6 +60,20 @@ function parseGesprek(r: AirtableRecord<any>): Gesprek {
   const f = r.fields;
   const school: string[] = f["School"] || [];
   const leraar: string[] = f["Leraar"] || [];
+  let berichten: GesprekBericht[] = [];
+  const berichtenRaw = typeof f["Berichten"] === "string" ? f["Berichten"] : "";
+  if (berichtenRaw) {
+    try {
+      const parsed = JSON.parse(berichtenRaw);
+      if (Array.isArray(parsed)) {
+        berichten = parsed
+          .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+          .map((m) => ({ role: m.role, content: m.content }));
+      }
+    } catch {
+      // silently ignore corrupt JSON — old rows pre-feature
+    }
+  }
   return {
     id: r.id,
     schoolId: school[0] || null,
@@ -62,6 +84,9 @@ function parseGesprek(r: AirtableRecord<any>): Gesprek {
     datum: f["Datum"] || r.createdTime || "",
     tokensIn: Number(f["TokensIn"] || 0),
     tokensOut: Number(f["TokensOut"] || 0),
+    primaryKaart: f["PrimaryKaart"] || "",
+    samenvatting: f["Samenvatting"] || "",
+    berichten,
   };
 }
 
@@ -77,7 +102,10 @@ export async function logGesprek(input: {
   kenniskaartTitels: string[];
   tokensIn?: number;
   tokensOut?: number;
-}): Promise<void> {
+  primaryKaart?: string;
+  samenvatting?: string;
+  berichten?: GesprekBericht[];
+}): Promise<string | null> {
   try {
     const fields: Record<string, unknown> = {
       Zoekterm: input.zoekterm.slice(0, 200),
@@ -89,12 +117,46 @@ export async function logGesprek(input: {
     if (typeof input.tokensOut === "number") fields["TokensOut"] = input.tokensOut;
     if (input.schoolId) fields["School"] = [input.schoolId];
     if (input.leraarId) fields["Leraar"] = [input.leraarId];
-    await at(tableUrl("Gesprekken"), {
+    if (input.primaryKaart) fields["PrimaryKaart"] = input.primaryKaart.slice(0, 200);
+    if (input.samenvatting) fields["Samenvatting"] = input.samenvatting.slice(0, 500);
+    if (input.berichten && input.berichten.length) {
+      // Airtable multilineText limiet is ~100k chars; we truncaten per bericht naar
+      // 4000 chars en laten max 40 turns door. Voor onze gespreksstructuur ruim genoeg.
+      const trimmed = input.berichten
+        .slice(-40)
+        .map((m) => ({ role: m.role, content: (m.content || "").slice(0, 4000) }));
+      fields["Berichten"] = JSON.stringify(trimmed);
+    }
+    const resp = await at<{ id: string }>(tableUrl("Gesprekken"), {
       method: "POST",
       body: JSON.stringify({ fields, typecast: true }),
     });
+    return resp.id || null;
   } catch (err) {
     console.warn("[gesprekken] log mislukt:", err);
+    return null;
+  }
+}
+
+/**
+ * Haal de laatste N gesprekken van Ã©Ã©n leraar op (nieuwste eerst).
+ */
+export async function listGesprekkenForLeraar(
+  leraarId: string,
+  limit = 10
+): Promise<Gesprek[]> {
+  const formula = `FIND('${leraarId}', ARRAYJOIN({Leraar}))`;
+  const url = `${tableUrl("Gesprekken")}?filterByFormula=${encodeURIComponent(formula)}&pageSize=${Math.min(limit, 100)}&sort%5B0%5D%5Bfield%5D=Datum&sort%5B0%5D%5Bdirection%5D=desc`;
+  const data = await at<AirtableListResponse<Record<string, unknown>>>(url);
+  return (data.records || []).map(parseGesprek).slice(0, limit);
+}
+
+export async function getGesprek(id: string): Promise<Gesprek | null> {
+  try {
+    const data = await at<AirtableRecord<Record<string, unknown>>>(tableUrl("Gesprekken", id));
+    return parseGesprek(data);
+  } catch {
+    return null;
   }
 }
 

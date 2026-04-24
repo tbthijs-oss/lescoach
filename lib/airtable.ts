@@ -227,23 +227,95 @@ export async function getAllExperts(): Promise<Expert[]> {
   return expertsCache!;
 }
 
+// Synoniem-map voor speciaal-onderwijs termen. Mapping van een "canonieke" term
+// naar aliassen; alle aliassen en de canonieke term scoren op hetzelfde concept.
+// Laag gehouden (21 clusters): genoeg om de meest voorkomende mismatches te
+// vangen, weinig genoeg om onderhoudbaar te blijven.
+const EXPERT_SYNONIEMEN: Record<string, string[]> = {
+  adhd: ["adhd", "aandachtstekort", "aandachtsstoornis", "hyperactief", "hyperactiviteit", "impulsief", "impulsiviteit", "aandacht en concentratie"],
+  add: ["add", "attention deficit", "aandachtsprobleem"],
+  autisme: ["autisme", "ass", "asd", "autismespectrumstoornis", "pdd", "asperger"],
+  dyslexie: ["dyslexie", "leesprobleem", "leesachterstand", "spellingsprobleem"],
+  dyscalculie: ["dyscalculie", "rekenprobleem", "rekenachterstand"],
+  dcd: ["dcd", "motoriek", "motorische ontwikkeling", "schrijfmotoriek", "fijne motoriek"],
+  angst: ["angst", "angststoornis", "faalangst", "paniek", "piekeren", "sociale angst", "schoolangst"],
+  depressie: ["depressie", "depressief", "somberheid", "neerslachtig"],
+  hechting: ["hechting", "hechtingsproblematiek", "bindingsangst", "reactieve hechtingsstoornis"],
+  prikkels: ["prikkelverwerking", "sensorische integratie", "overprikkeld", "ondergeprikkeld", "sensory processing"],
+  hoogbegaafd: ["hoogbegaafd", "hb", "hoogbegaafdheid", "meerbegaafd", "cognitief begaafd"],
+  taalontwikkeling: ["tos", "taalontwikkelingsstoornis", "taalachterstand", "spraak", "spraakprobleem"],
+  gedrag: ["gedragsprobleem", "gedragsstoornis", "odd", "cd", "oppositioneel", "opstandig", "agressief", "agressie"],
+  trauma: ["trauma", "ptss", "posttraumatisch", "verlies", "rouw", "ingrijpend"],
+  nld: ["nld", "non-verbal learning disorder", "non-verbale leerstoornis"],
+  ticstoornis: ["tic", "tics", "tourette", "ticstoornis"],
+  obsessief: ["ocd", "dwang", "dwangstoornis", "obsessief compulsief"],
+  eetstoornis: ["eetstoornis", "anorexia", "boulimia", "arfid", "voedselweigering"],
+  slaap: ["slaap", "slaapprobleem", "slaapritme"],
+  werkhouding: ["werkhouding", "planning", "organisatie", "executieve functies"],
+  sociale_vaardigheden: ["sociale vaardigheden", "contactprobleem", "sociaal isolement", "pesten", "gepest"],
+};
+
+// Flatten: term → canonieke sleutel
+const TERM_TO_CLUSTER: Map<string, string> = (() => {
+  const map = new Map<string, string>();
+  for (const [cluster, aliases] of Object.entries(EXPERT_SYNONIEMEN)) {
+    for (const a of aliases) map.set(a.toLowerCase(), cluster);
+  }
+  return map;
+})();
+
+function clustersFor(text: string): Set<string> {
+  const lower = text.toLowerCase();
+  const clusters = new Set<string>();
+  for (const [term, cluster] of TERM_TO_CLUSTER.entries()) {
+    if (lower.includes(term)) clusters.add(cluster);
+  }
+  return clusters;
+}
+
 /**
  * Find the best-matching expert(s) for a given set of trefwoorden.
- * Returns up to `limit` experts sorted by overlap score.
+ *
+ * Scoring (gevoelig in deze volgorde):
+ *  +10 per gedeeld cluster tussen trefwoord en specialisatie (synoniem-aware)
+ *  +3 per directe substring-match (letterlijke overlap die niet via cluster gaat)
+ *  +1 per gedeeld losse woord (≥4 tekens) tussen trefwoord en specialisatie
+ *
+ * Zo pakt de fuzzy-matcher bv. trefwoord "ADHD" op een expert met
+ * "aandachtstekort + hyperactiviteit" als specialisatie, zonder dat die
+ * letterlijk "ADHD" in hun profiel hebben staan.
  */
 export async function matchExperts(
   trefwoorden: string[],
   limit = 2
 ): Promise<Expert[]> {
   const all = await getAllExperts();
-  const needle = trefwoorden.map((t) => t.toLowerCase());
+  if (all.length === 0) return [];
+
+  const needleText = trefwoorden.join(" ").toLowerCase();
+  const needleClusters = clustersFor(needleText);
+  const needleWords = new Set(
+    needleText.split(/[\s,;\/]+/).filter((w) => w.length >= 4)
+  );
 
   const scored = all.map((expert) => {
-    const score = needle.filter((kw) =>
-      expert.specialisaties.some(
-        (s) => s.includes(kw) || kw.includes(s)
-      )
-    ).length;
+    const specText = expert.specialisaties.join(" ").toLowerCase();
+    const specClusters = clustersFor(specText);
+    const specWords = new Set(specText.split(/[\s,;\/]+/).filter((w) => w.length >= 4));
+
+    let score = 0;
+    // Cluster overlap — sterkste signaal
+    for (const c of needleClusters) {
+      if (specClusters.has(c)) score += 10;
+    }
+    // Directe substring match (bv. "dyslexie" → "dyslexie-experts")
+    for (const kw of trefwoorden.map((t) => t.toLowerCase())) {
+      if (kw.length >= 3 && specText.includes(kw)) score += 3;
+    }
+    // Los-woord overlap
+    for (const w of needleWords) {
+      if (specWords.has(w)) score += 1;
+    }
     return { expert, score };
   });
 

@@ -486,6 +486,7 @@ export default function SchoolDashboard() {
         </div>
         <div className="flex items-center gap-3">
           <Link href="/school/gebruik" className="text-xs text-slate-600 hover:text-blue-600 hover:underline">Gebruik</Link>
+          <Link href="/school/meldcode" className="text-xs text-slate-600 hover:text-red-600 hover:underline">Meldcode</Link>
           <Link href="/chat" className="text-xs text-blue-600 hover:underline">Naar Noor →</Link>
           <button onClick={handleLogout} className="text-xs text-slate-500 hover:text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-50">
             Uitloggen

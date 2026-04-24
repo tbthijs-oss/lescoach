@@ -814,7 +814,7 @@ function ResultsPanel({
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
             </svg>
-            Printen
+            Print of PDF
           </button>
           <button
             onClick={onNewConversation}
@@ -855,6 +855,9 @@ export default function ChatPage() {
   const [piiWarning, setPiiWarning] = useState(false);
   const [mobileSheet, setMobileSheet] = useState<"hidden" | "peek" | "full">("hidden");
   const [authedUser, setAuthedUser] = useState<{ naam: string; rol: "admin" | "leraar"; schoolnaam?: string } | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [history, setHistory] = useState<Array<{ id: string; datum: string; primaryKaart: string; samenvatting: string; zoekterm: string; categorie: string }>>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -878,6 +881,53 @@ export default function ChatPage() {
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
+  }
+
+  async function openHistory() {
+    setHistoryOpen(true);
+    setHistoryLoading(true);
+    try {
+      const res = await fetch("/api/chat/history");
+      const data = await res.json();
+      setHistory(Array.isArray(data.gesprekken) ? data.gesprekken : []);
+    } catch {
+      setHistory([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
+  async function loadHistoryItem(id: string) {
+    setHistoryOpen(false);
+    try {
+      const res = await fetch(`/api/chat/history/${id}`);
+      if (!res.ok) return;
+      const { gesprek } = await res.json();
+      if (!gesprek || !Array.isArray(gesprek.berichten)) return;
+      // Herstel de berichtenreeks op het scherm. We tonen de oude conversatie
+      // read-only — nieuwe berichten starten een nieuwe sessie (dus leerkracht
+      // moet via "Nieuw gesprek" doorvragen op deze leerling).
+      setMessages(gesprek.berichten);
+      setDone(true);
+      setSuggestions([]);
+      // Kenniskaarten worden niet in de historie bewaard — alleen titels.
+      // We laten het rechterpaneel leeg; een heropgehaalde conversatie is
+      // een historisch overzicht, niet een herstart.
+      setKenniskaarten([]);
+      setExperts([]);
+      setAnalysis({
+        profileLine: gesprek.samenvatting || "",
+        primaryKaartTitel: gesprek.primaryKaart || "",
+        alternativeKaartTitels: [],
+        insight: "",
+        acties: [],
+        overleg: "",
+        signaal: "",
+        contextChips: [],
+      });
+    } catch {
+      // silent
+    }
   }
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -1029,6 +1079,54 @@ export default function ChatPage() {
               </svg>
               Expert inschakelen
             </button>
+          )}
+          {authedUser && authedUser.rol === "leraar" && (
+            <div className="relative">
+              <button
+                onClick={() => historyOpen ? setHistoryOpen(false) : openHistory()}
+                className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                title="Eerdere gesprekken"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Eerdere gesprekken
+              </button>
+              {historyOpen && (
+                <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-lg z-40 max-h-[70vh] overflow-y-auto">
+                  <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Jouw laatste gesprekken</span>
+                    <button onClick={() => setHistoryOpen(false)} className="text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
+                  </div>
+                  {historyLoading ? (
+                    <div className="px-4 py-6 text-sm text-slate-500 text-center">Laden…</div>
+                  ) : history.length === 0 ? (
+                    <div className="px-4 py-6 text-sm text-slate-500 text-center">Nog geen eerdere gesprekken.</div>
+                  ) : (
+                    <ul className="divide-y divide-slate-100">
+                      {history.map((h) => (
+                        <li key={h.id}>
+                          <button
+                            onClick={() => loadHistoryItem(h.id)}
+                            className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors"
+                          >
+                            <div className="text-sm font-medium text-slate-900 line-clamp-1">
+                              {h.primaryKaart || h.categorie || h.zoekterm || "Gesprek"}
+                            </div>
+                            {h.samenvatting && (
+                              <div className="text-xs text-slate-500 line-clamp-2 mt-0.5">{h.samenvatting}</div>
+                            )}
+                            <div className="text-[11px] text-slate-400 mt-1">
+                              {h.datum ? new Date(h.datum).toLocaleDateString("nl-NL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : ""}
+                            </div>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
           )}
           <button
             onClick={resetChat}
