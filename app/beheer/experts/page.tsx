@@ -39,20 +39,23 @@ const EMPTY_EXPERT: Omit<Expert, "id"> = {
 };
 
 function parseRecord(record: AirtableRecord): Expert {
+  // Airtable retourneert veld-NAMEN (niet -IDs) tenzij we expliciet
+  // returnFieldsByFieldId=true meesturen. Zelfde mapping als lib/airtable.ts,
+  // zodat na een base-reimport of veld-rename niets breekt.
   const f = record.fields;
   return {
     id: record.id,
-    naam: (f["fldlIpS7xTWze43gJ"] as string) || "",
-    titel: (f["fldY7YAV7ZIsHpIu5"] as string) || "",
-    bio: (f["fldBMGbBncFIp5tPn"] as string) || "",
-    specialisaties: (f["fld0q7vkM7K0YfnBw"] as string) || "",
-    email: (f["fld1PlJECsJv70w8G"] as string) || "",
-    telefoon: (f["fldgCrSlOac82CwTB"] as string) || "",
-    linkedin: (f["fldx30ctWow9T40IN"] as string) || "",
-    fotoUrl: (f["fldsdq91TXomWNpWZ"] as string) || "",
-    beschikbaar: (f["flduj5f58FtEHZP6k"] as boolean) === true,
-    ervaringsjaren: (f["fldAX1Acb9wJu2p6F"] as number) || 0,
-    regio: (f["fldaePVPISVXp943r"] as string) || "",
+    naam: (f["Naam"] as string) || "",
+    titel: (f["Titel"] as string) || "",
+    bio: (f["Bio"] as string) || "",
+    specialisaties: (f["Specialisaties"] as string) || "",
+    email: (f["Email"] as string) || "",
+    telefoon: (f["Telefoon"] as string) || "",
+    linkedin: (f["LinkedIn"] as string) || "",
+    fotoUrl: (f["Foto URL"] as string) || (f["FotoUrl"] as string) || "",
+    beschikbaar: (f["Beschikbaar"] as boolean) === true,
+    ervaringsjaren: (f["Ervaringsjaren"] as number) || 0,
+    regio: (f["Regio"] as string) || "",
   };
 }
 

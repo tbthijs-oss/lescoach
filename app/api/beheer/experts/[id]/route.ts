@@ -27,17 +27,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const body = await request.json();
 
   const fields: Record<string, unknown> = {};
-  if (body.naam !== undefined) fields["fldlIpS7xTWze43gJ"] = body.naam;
-  if (body.titel !== undefined) fields["fldY7YAV7ZIsHpIu5"] = body.titel;
-  if (body.bio !== undefined) fields["fldBMGbBncFIp5tPn"] = body.bio;
-  if (body.specialisaties !== undefined) fields["fld0q7vkM7K0YfnBw"] = body.specialisaties;
-  if (body.email !== undefined) fields["fld1PlJECsJv70w8G"] = body.email;
-  if (body.telefoon !== undefined) fields["fldgCrSlOac82CwTB"] = body.telefoon;
-  if (body.linkedin !== undefined) fields["fldx30ctWow9T40IN"] = body.linkedin;
-  if (body.fotoUrl !== undefined) fields["fldsdq91TXomWNpWZ"] = body.fotoUrl;
-  if (body.beschikbaar !== undefined) fields["flduj5f58FtEHZP6k"] = !!body.beschikbaar;
-  if (body.ervaringsjaren !== undefined) fields["fldAX1Acb9wJu2p6F"] = Number(body.ervaringsjaren) || 0;
-  if (body.regio !== undefined) fields["fldaePVPISVXp943r"] = body.regio;
+  if (body.naam !== undefined) fields["Naam"] = body.naam;
+  if (body.titel !== undefined) fields["Titel"] = body.titel;
+  if (body.bio !== undefined) fields["Bio"] = body.bio;
+  if (body.specialisaties !== undefined) fields["Specialisaties"] = body.specialisaties;
+  if (body.email !== undefined) fields["Email"] = body.email;
+  if (body.telefoon !== undefined) fields["Telefoon"] = body.telefoon;
+  if (body.linkedin !== undefined) fields["LinkedIn"] = body.linkedin;
+  if (body.fotoUrl !== undefined) fields["Foto URL"] = body.fotoUrl;
+  if (body.beschikbaar !== undefined) fields["Beschikbaar"] = !!body.beschikbaar;
+  if (body.ervaringsjaren !== undefined) fields["Ervaringsjaren"] = Number(body.ervaringsjaren) || 0;
+  if (body.regio !== undefined) fields["Regio"] = body.regio;
 
   const res = await fetch(expertUrl(id), {
     method: "PATCH",

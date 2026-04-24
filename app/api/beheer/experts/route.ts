@@ -25,17 +25,17 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
 
   const fields = {
-    fldlIpS7xTWze43gJ: body.naam || "",
-    fldY7YAV7ZIsHpIu5: body.titel || "",
-    fldBMGbBncFIp5tPn: body.bio || "",
-    fld0q7vkM7K0YfnBw: body.specialisaties || "",
-    fld1PlJECsJv70w8G: body.email || "",
-    fldgCrSlOac82CwTB: body.telefoon || "",
-    fldx30ctWow9T40IN: body.linkedin || "",
-    fldsdq91TXomWNpWZ: body.fotoUrl || "",
-    flduj5f58FtEHZP6k: !!body.beschikbaar,
-    fldAX1Acb9wJu2p6F: Number(body.ervaringsjaren) || 0,
-    fldaePVPISVXp943r: body.regio || "",
+    Naam: body.naam || "",
+    Titel: body.titel || "",
+    Bio: body.bio || "",
+    Specialisaties: body.specialisaties || "",
+    Email: body.email || "",
+    Telefoon: body.telefoon || "",
+    LinkedIn: body.linkedin || "",
+    "Foto URL": body.fotoUrl || "",
+    Beschikbaar: !!body.beschikbaar,
+    Ervaringsjaren: Number(body.ervaringsjaren) || 0,
+    Regio: body.regio || "",
   };
 
   const res = await fetch(EXPERTS_URL, {
