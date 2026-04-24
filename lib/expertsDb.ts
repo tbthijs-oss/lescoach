@@ -12,7 +12,7 @@ const BASE = process.env.AIRTABLE_BASE_ID;
 const TOKEN = process.env.AIRTABLE_API_TOKEN;
 
 function expertsUrl(suffix = ""): string {
-  const base = `https://api.airtable.com/v0/${BASE}/${EXPERTS_TABLE_ID}`;
+  const base = `https://api.airtable.com/v0/${BASE}/${encodeURIComponent(EXPERTS_TABLE_ID)}`;
   return suffix ? `${base}/${suffix}` : base;
 }
 

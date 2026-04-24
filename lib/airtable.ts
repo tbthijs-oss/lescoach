@@ -13,7 +13,11 @@ export interface Kenniskaart {
   bronUrl: string;
 }
 
-const KENNISKAARTEN_URL = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${process.env.AIRTABLE_TABLE_ID}`;
+// Kenniskaarten-tabel — bij voorkeur via env var AIRTABLE_TABLE_ID (een tbl...-id),
+// met fallback op de tabelnaam "Kenniskaarten" zodat een geÃ¯mporteerde/gekloonde
+// base altijd blijft werken ook al wisselt het ID.
+const KENNISKAARTEN_TABLE = process.env.AIRTABLE_TABLE_ID || "Kenniskaarten";
+const KENNISKAARTEN_URL = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent(KENNISKAARTEN_TABLE)}`;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseKenniskaartRecord(record: any): Kenniskaart {
@@ -115,8 +119,8 @@ export interface Expert {
 // Table ID for Experts table in the LesCoach base (appUffpnWXsdmrhiw).
 // Overridable via AIRTABLE_EXPERTS_TABLE_ID env var for forked bases.
 export const EXPERTS_TABLE_ID =
-  process.env.AIRTABLE_EXPERTS_TABLE_ID || "tbluWjE1A4oVazNDR";
-const EXPERTS_URL = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${EXPERTS_TABLE_ID}`;
+  process.env.AIRTABLE_EXPERTS_TABLE_ID || "Experts";
+const EXPERTS_URL = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent(EXPERTS_TABLE_ID)}`;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseExpertRecord(record: any): Expert {
