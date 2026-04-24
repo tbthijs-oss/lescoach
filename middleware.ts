@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { safeEqual } from "@/lib/safeEqual";
 
 /**
  * Middleware: shallow cookie-presence check. Echte HMAC-validatie doen
@@ -16,7 +17,7 @@ export function middleware(request: NextRequest) {
     !pathname.startsWith("/api/beheer/auth")
   ) {
     const token = request.cookies.get("beheer_token");
-    if (!token || token.value !== process.env.ADMIN_TOKEN) {
+    if (!token || !safeEqual(token.value, process.env.ADMIN_TOKEN)) {
       const loginUrl = new URL("/beheer/login", request.url);
       loginUrl.searchParams.set("redirect", pathname);
       return NextResponse.redirect(loginUrl);

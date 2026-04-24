@@ -1,4 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
+import { rateLimit, clientIdFromRequest, rateLimitResponse } from "@/lib/rateLimit";
+
+// Minimale HTML-escape voor gebruikersinput in e-mail body (XSS-mitigatie).
+// Emailclients sanitizen meestal, maar we voorkomen hiermee:
+// - trackingpixel-injectie via <img>
+// - script-tags (ook al worden die meestal gestript)
+// - lekken van metadata via een malafide expert die iemand anders' e-mail
+//   krijgt en daar iets mee doet.
+function esc(s: unknown): string {
+  if (s == null) return "";
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Basis-e-mailvalidatie. We accepteren wat Resend ook zou accepteren en
+// blokkeren CRLF om header-injectie te voorkomen als we ooit naar raw SMTP
+// gaan. Simpel maar werkt voor 99% van de gevallen.
+function isValidEmail(e: unknown): e is string {
+  if (typeof e !== "string") return false;
+  if (e.length > 320) return false; // RFC 5321 limit
+  if (/[\r\n]/.test(e)) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+}
 
 interface ContactInfo {
   naam: string;
@@ -27,16 +54,35 @@ interface Message {
 }
 
 export async function POST(request: NextRequest) {
+  // Rate limit: 3 aanvragen per 10 min per IP. Een leerkracht die meerdere
+  // gesprekken voert is prima, maar spam via contact-expert (naar echte
+  // experts, via Resend) voorkomen we hiermee.
+  const rl = rateLimit(`contact:${clientIdFromRequest(request)}`, 3, 10 * 60_000);
+  if (!rl.ok) return rateLimitResponse(rl) as unknown as Response;
+
   try {
-    const {
-      messages,
-      kenniskaarten,
-      contact,
-    }: {
-      messages: Message[];
-      kenniskaarten: Kenniskaart[];
-      contact: ContactInfo;
-    } = await request.json();
+    const body = await request.json();
+    let messages: Message[] = Array.isArray(body?.messages) ? body.messages : [];
+    const kenniskaarten: Kenniskaart[] = Array.isArray(body?.kenniskaarten) ? body.kenniskaarten : [];
+    const contact: ContactInfo = body?.contact || { naam: "", school: "", email: "" };
+
+    // Input validatie: email moet geldig zijn, velden niet te lang.
+    if (!isValidEmail(contact?.email)) {
+      return NextResponse.json({ error: "E-mailadres is ongeldig." }, { status: 400 });
+    }
+    if (typeof contact.naam !== "string" || contact.naam.length > 200) {
+      return NextResponse.json({ error: "Naam is ongeldig." }, { status: 400 });
+    }
+    if (typeof contact.school !== "string" || contact.school.length > 200) {
+      return NextResponse.json({ error: "School is ongeldig." }, { status: 400 });
+    }
+    // Cap opmerkingen en transcripts om oversized e-mails te voorkomen.
+    if (contact.opmerkingen && contact.opmerkingen.length > 5000) {
+      contact.opmerkingen = contact.opmerkingen.slice(0, 5000);
+    }
+    if (Array.isArray(messages) && messages.length > 200) {
+      messages = messages.slice(-200);
+    }
 
     if (!contact.naam || !contact.school || !contact.email) {
       return NextResponse.json(
@@ -61,7 +107,7 @@ export async function POST(request: NextRequest) {
           from: process.env.RESEND_FROM || "Noor <noor@lescoach.nl>",
           to: [expertEmail],
           reply_to: contact.email,
-          subject: `LesCoach aanvraag: ${contact.naam} – ${contact.school}`,
+          subject: `LesCoach aanvraag: ${(contact.naam || "").slice(0, 100)} – ${(contact.school || "").slice(0, 100)}`,
           html: reportHtml,
         }),
       });
@@ -125,10 +171,10 @@ function buildReportHtml(
         <td style="padding: 10px 14px; font-weight: 600; color: ${
           m.role === "user" ? "#2563eb" : "#374151"
         }; white-space: nowrap; vertical-align: top; width: 120px; font-size: 13px;">
-          ${m.role === "user" ? contact.naam || "Leerkracht" : "LesCoach"}
+          ${m.role === "user" ? esc(contact.naam || "Leerkracht") : "LesCoach"}
         </td>
         <td style="padding: 10px 14px; color: #374151; font-size: 14px; line-height: 1.6;">
-          ${m.content.replace(/\n/g, "<br>")}
+          ${esc(m.content).replace(/\n/g, "<br>")}
         </td>
       </tr>
     `
@@ -139,18 +185,18 @@ function buildReportHtml(
     .map(
       (k) => `
       <div style="border: 1px solid #e5e7eb; border-radius: 10px; padding: 18px; margin-bottom: 16px; background: white;">
-        <div style="color: #6b7280; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;">${k.categorie}</div>
-        <div style="font-size: 17px; font-weight: 700; color: #1f2937; margin: 4px 0 8px;">${k.titel}</div>
-        ${k.trefwoorden?.length ? `<div style="margin-bottom: 10px;">${k.trefwoorden.map((t) => `<span style="display: inline-block; background: #eff6ff; color: #3b82f6; font-size: 11px; padding: 2px 8px; border-radius: 20px; margin-right: 4px;">${t}</span>`).join("")}</div>` : ""}
-        <p style="color: #4b5563; margin: 0 0 12px; font-size: 14px; line-height: 1.6;">${k.samenvatting}</p>
-        ${k.watIsHet ? `<div style="margin-bottom: 10px;"><div style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Wat is het?</div><p style="color: #374151; font-size: 13px; margin: 0; line-height: 1.6;">${k.watIsHet}</p></div>` : ""}
-        ${k.gevolgen ? `<div style="margin-bottom: 10px;"><div style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Gevolgen in de klas</div><p style="color: #374151; font-size: 13px; margin: 0; line-height: 1.6;">${k.gevolgen}</p></div>` : ""}
-        ${k.tips ? `<div style="background: #f0fdf4; border-left: 3px solid #22c55e; padding: 12px 14px; border-radius: 0 6px 6px 0; margin-top: 10px;"><div style="font-size: 11px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Tips voor de leerkracht</div><p style="color: #166534; font-size: 13px; margin: 0; line-height: 1.6;">${k.tips}</p></div>` : ""}
+        <div style="color: #6b7280; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;">${esc(k.categorie)}</div>
+        <div style="font-size: 17px; font-weight: 700; color: #1f2937; margin: 4px 0 8px;">${esc(k.titel)}</div>
+        ${k.trefwoorden?.length ? `<div style="margin-bottom: 10px;">${k.trefwoorden.map((t) => `<span style="display: inline-block; background: #eff6ff; color: #3b82f6; font-size: 11px; padding: 2px 8px; border-radius: 20px; margin-right: 4px;">${esc(t)}</span>`).join("")}</div>` : ""}
+        <p style="color: #4b5563; margin: 0 0 12px; font-size: 14px; line-height: 1.6;">${esc(k.samenvatting)}</p>
+        ${k.watIsHet ? `<div style="margin-bottom: 10px;"><div style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Wat is het?</div><p style="color: #374151; font-size: 13px; margin: 0; line-height: 1.6;">${esc(k.watIsHet)}</p></div>` : ""}
+        ${k.gevolgen ? `<div style="margin-bottom: 10px;"><div style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Gevolgen in de klas</div><p style="color: #374151; font-size: 13px; margin: 0; line-height: 1.6;">${esc(k.gevolgen)}</p></div>` : ""}
+        ${k.tips ? `<div style="background: #f0fdf4; border-left: 3px solid #22c55e; padding: 12px 14px; border-radius: 0 6px 6px 0; margin-top: 10px;"><div style="font-size: 11px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Tips voor de leerkracht</div><p style="color: #166534; font-size: 13px; margin: 0; line-height: 1.6;">${esc(k.tips)}</p></div>` : ""}
         ${
           k.pdfUrl || k.bronUrl
             ? `<div style="margin-top: 12px; font-size: 13px;">
-          ${k.pdfUrl ? `<a href="${k.pdfUrl}" style="color: #2563eb; margin-right: 16px;">📄 Download PDF</a>` : ""}
-          ${k.bronUrl ? `<a href="${k.bronUrl}" style="color: #6b7280;">🔗 Meer informatie</a>` : ""}
+          ${k.pdfUrl ? `<a href="${esc(k.pdfUrl)}" style="color: #2563eb; margin-right: 16px;">📄 Download PDF</a>` : ""}
+          ${k.bronUrl ? `<a href="${esc(k.bronUrl)}" style="color: #6b7280;">🔗 Meer informatie</a>` : ""}
         </div>`
             : ""
         }
@@ -164,7 +210,7 @@ function buildReportHtml(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LesCoach rapport – ${contact.naam}</title>
+  <title>LesCoach rapport – ${esc(contact.naam)}</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; margin: 0; padding: 0; background: #f3f4f6;">
 
@@ -180,11 +226,11 @@ function buildReportHtml(
     <div style="background: white; border-radius: 12px; padding: 28px; margin-top: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
       <h2 style="color: #111827; margin: 0 0 18px; font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280;">Contactgegevens</h2>
       <table style="width: 100%; border-collapse: collapse;">
-        <tr><td style="padding: 6px 0; color: #9ca3af; font-size: 13px; width: 120px;">Naam</td><td style="font-weight: 600; color: #111827; font-size: 15px;">${contact.naam}</td></tr>
-        <tr><td style="padding: 6px 0; color: #9ca3af; font-size: 13px;">School</td><td style="font-weight: 600; color: #111827; font-size: 15px;">${contact.school}</td></tr>
-        <tr><td style="padding: 6px 0; color: #9ca3af; font-size: 13px;">E-mail</td><td><a href="mailto:${contact.email}" style="color: #2563eb; font-size: 15px;">${contact.email}</a></td></tr>
-        ${contact.telefoon ? `<tr><td style="padding: 6px 0; color: #9ca3af; font-size: 13px;">Telefoon</td><td style="color: #111827; font-size: 15px;">${contact.telefoon}</td></tr>` : ""}
-        ${contact.opmerkingen ? `<tr><td style="padding: 6px 0; color: #9ca3af; font-size: 13px; vertical-align: top; padding-top: 8px;">Opmerkingen</td><td style="color: #374151; font-size: 14px; padding-top: 8px; line-height: 1.6;">${contact.opmerkingen.replace(/\n/g, "<br>")}</td></tr>` : ""}
+        <tr><td style="padding: 6px 0; color: #9ca3af; font-size: 13px; width: 120px;">Naam</td><td style="font-weight: 600; color: #111827; font-size: 15px;">${esc(contact.naam)}</td></tr>
+        <tr><td style="padding: 6px 0; color: #9ca3af; font-size: 13px;">School</td><td style="font-weight: 600; color: #111827; font-size: 15px;">${esc(contact.school)}</td></tr>
+        <tr><td style="padding: 6px 0; color: #9ca3af; font-size: 13px;">E-mail</td><td><a href="mailto:${esc(contact.email)}" style="color: #2563eb; font-size: 15px;">${esc(contact.email)}</a></td></tr>
+        ${contact.telefoon ? `<tr><td style="padding: 6px 0; color: #9ca3af; font-size: 13px;">Telefoon</td><td style="color: #111827; font-size: 15px;">${esc(contact.telefoon)}</td></tr>` : ""}
+        ${contact.opmerkingen ? `<tr><td style="padding: 6px 0; color: #9ca3af; font-size: 13px; vertical-align: top; padding-top: 8px;">Opmerkingen</td><td style="color: #374151; font-size: 14px; padding-top: 8px; line-height: 1.6;">${esc(contact.opmerkingen).replace(/\n/g, "<br>")}</td></tr>` : ""}
       </table>
       <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid #f3f4f6; color: #9ca3af; font-size: 12px;">
         Aanvraag ingediend op ${now} via lescoach.nl

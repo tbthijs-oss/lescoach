@@ -8,6 +8,8 @@
  */
 
 import crypto from "crypto";
+import { safeEqual } from "@/lib/safeEqual";
+export { safeEqual };
 
 const COOKIE_NAME = "lescoach-leraar";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
@@ -24,6 +26,7 @@ function secret(): string {
 function hmac(payload: string): string {
   return crypto.createHmac("sha256", secret()).update(payload).digest("base64url");
 }
+
 
 // ─── Magic-link tokens ──────────────────────────────────────────────────────
 

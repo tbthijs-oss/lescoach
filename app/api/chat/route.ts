@@ -7,6 +7,7 @@ import { parseSession, AUTH_COOKIE } from "@/lib/auth";
 import { getLeraar, getSchool } from "@/lib/authDb";
 import { logGesprek } from "@/lib/gesprekkenDb";
 import { logMeldcodeSignaal } from "@/lib/meldcodeDb";
+import { rateLimit, clientIdFromRequest, rateLimitResponse } from "@/lib/rateLimit";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -82,11 +83,31 @@ function parseNoorData(text: string): {
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const { messages }: { messages: Message[] } = await request.json();
+  // Rate-limit chat: 20 berichten per 10 min per IP. Voorkomt dat iemand met
+  // geldige sessie de Anthropic-rekening opblaast. Legitiem gebruik blijft
+  // ruim onder deze limiet — een intake is 4-5 turns.
+  const rl = rateLimit(`chat:${clientIdFromRequest(request)}`, 20, 10 * 60_000);
+  if (!rl.ok) return rateLimitResponse(rl) as unknown as Response;
 
-    if (!messages || messages.length === 0) {
+  try {
+    const body = await request.json().catch(() => null);
+    const messages: Message[] = Array.isArray(body?.messages) ? body.messages : [];
+
+    if (messages.length === 0) {
       return NextResponse.json({ error: "Geen berichten meegegeven" }, { status: 400 });
+    }
+    // Cap: max 60 berichten, elk max 5000 tekens. Ongebruikelijk lange
+    // inputs zijn meestal prompt-injection pogingen of copy-paste errors.
+    if (messages.length > 60) {
+      return NextResponse.json({ error: "Gesprek te lang — start een nieuw gesprek." }, { status: 413 });
+    }
+    for (const m of messages) {
+      if (typeof m?.content !== "string" || !(m.role === "user" || m.role === "assistant")) {
+        return NextResponse.json({ error: "Ongeldig berichtformaat." }, { status: 400 });
+      }
+      if (m.content.length > 5000) {
+        return NextResponse.json({ error: "Bericht te lang (max 5000 tekens)." }, { status: 413 });
+      }
     }
 
     // ── Resolve sessie (geen harde eis — middleware heeft dit al gedaan voor
@@ -299,7 +320,7 @@ export async function POST(request: NextRequest) {
         // Resolve alternative top-3 kaart-ids. Als Noor aangaf onzeker te zijn
         // over welke kaart primair is, vullen we een array van max 2 extra
         // kaart-ids zodat de UI een top-3 kan tonen in plaats van geforceerd één.
-        let alternativeKaartIds: string[] = [];
+        const alternativeKaartIds: string[] = [];
         if (analysis?.alternativeKaartTitels?.length) {
           const seen = new Set([primaryKaartId]);
           for (const t of analysis.alternativeKaartTitels) {

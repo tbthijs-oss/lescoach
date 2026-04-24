@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { rateLimit, clientIdFromRequest, rateLimitResponse } from "@/lib/rateLimit";
+import { safeEqual } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
+  // Rate-limit wachtwoord-pogingen: 10 per 10 minuten per IP. Dit voorkomt
+  // een brute-force tegen ADMIN_PASSWORD. Lokale in-memory limiter is genoeg
+  // — bij echt aanhoudend misbruik staat er ook Vercel edge protection voor.
+  const rl = rateLimit(`beheer-auth:${clientIdFromRequest(request)}`, 10, 10 * 60_000);
+  if (!rl.ok) return rateLimitResponse(rl) as unknown as Response;
+
   try {
     const { password } = await request.json();
     const adminPassword = process.env.ADMIN_PASSWORD;
@@ -9,11 +17,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Admin not configured" }, { status: 500 });
     }
 
-    if (password !== adminPassword) {
+    // Timing-safe zodat aanvallers geen prefix kunnen afleiden.
+    if (!safeEqual(password, adminPassword)) {
       return NextResponse.json({ error: "Ongeldig wachtwoord" }, { status: 401 });
     }
 
-    // Use a simple derived token (password itself hashed would be better in prod)
     const token = process.env.ADMIN_TOKEN || adminPassword;
 
     const response = NextResponse.json({ success: true });

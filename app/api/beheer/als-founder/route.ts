@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { serializeSession, AUTH_COOKIE } from "@/lib/auth";
+import { serializeSession, AUTH_COOKIE, safeEqual } from "@/lib/auth";
 
 /**
  * Founder shortcut: als de beheerder is ingelogd (beheer_token cookie matcht
@@ -12,7 +12,7 @@ import { serializeSession, AUTH_COOKIE } from "@/lib/auth";
  */
 export async function POST(request: NextRequest) {
   const token = request.cookies.get("beheer_token")?.value;
-  if (!token || token !== process.env.ADMIN_TOKEN) {
+  if (!safeEqual(token, process.env.ADMIN_TOKEN)) {
     return NextResponse.json({ error: "Niet geautoriseerd" }, { status: 401 });
   }
 
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const token = request.cookies.get("beheer_token")?.value;
-  if (!token || token !== process.env.ADMIN_TOKEN) {
+  if (!safeEqual(token, process.env.ADMIN_TOKEN)) {
     return NextResponse.redirect(new URL("/beheer/login", request.url));
   }
 

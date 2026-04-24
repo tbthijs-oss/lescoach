@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { parseSession, AUTH_COOKIE, generateToken, magicLinkExpiry } from "@/lib/auth";
+import { parseSession, AUTH_COOKIE, safeEqual, generateToken, magicLinkExpiry } from "@/lib/auth";
 import {
   getLeraar,
   getSchool,
@@ -19,7 +19,7 @@ import { sendEmail, magicLinkEmail } from "@/lib/email";
 async function resolveAdminContext(request: NextRequest) {
   // Thomas (LesCoach-admin)
   const beheerToken = request.cookies.get("beheer_token");
-  if (beheerToken && beheerToken.value === process.env.ADMIN_TOKEN) {
+  if (beheerToken && safeEqual(beheerToken.value, process.env.ADMIN_TOKEN)) {
     return { kind: "lescoach" as const };
   }
   // School-admin (leraar met rol admin)
