@@ -158,12 +158,20 @@ export async function POST(request: NextRequest) {
       },
     ];
 
+    // Als we al 4+ user-turns hebben, dwingen we de tool-call AF via tool_choice.
+    // Het directief in de system prompt (zie hierboven) is niet altijd sterk genoeg;
+    // tool_choice garandeert dat Noor niet alsnog een 5e vraag stelt.
+    const forceToolCall = userTurnCount >= 4;
+
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 1500,
       system: personalizedSystem,
       tools,
       messages: safeMessages,
+      ...(forceToolCall
+        ? { tool_choice: { type: "tool" as const, name: "zoek_kenniskaarten" } }
+        : {}),
     });
     totalInputTokens += response.usage?.input_tokens ?? 0;
     totalOutputTokens += response.usage?.output_tokens ?? 0;
