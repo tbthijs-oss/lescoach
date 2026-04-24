@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 interface School {
   id: string;
@@ -50,6 +50,7 @@ function SchoolFormModal({
 
   useEffect(() => {
     if (school && school !== "new") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setData({
         schoolnaam: school.schoolnaam,
         contactpersoon: school.contactpersoon,
@@ -234,6 +235,8 @@ export default function ScholenPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [modal, setModal] = useState<School | "new" | null>(null);
+  const [q, setQ] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | School["status"]>("all");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -250,7 +253,31 @@ export default function ScholenPage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, [load]);
+
+  const counts = useMemo(() => {
+    const c = { actief: 0, proef: 0, inactief: 0, leraren: 0 };
+    for (const s of scholen) {
+      c[s.status]++;
+      c.leraren += s.lerarenAantal ?? 0;
+    }
+    return c;
+  }, [scholen]);
+
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return scholen.filter((s) => {
+      if (statusFilter !== "all" && s.status !== statusFilter) return false;
+      if (!needle) return true;
+      const hay = [s.schoolnaam, s.contactpersoon, s.contactEmail, s.notities || ""]
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(needle);
+    });
+  }, [scholen, q, statusFilter]);
 
   async function handleDelete(s: School) {
     if (!confirm(`Weet je zeker dat je ${s.schoolnaam} wilt verwijderen? Leraren blijven behouden maar verliezen hun koppeling.`)) return;
@@ -261,7 +288,7 @@ export default function ScholenPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Scholen</h1>
           <p className="text-sm text-slate-500 mt-1">
@@ -279,6 +306,72 @@ export default function ScholenPage() {
         </button>
       </div>
 
+      {/* Stats */}
+      {!loading && scholen.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+          <div className="bg-white border border-slate-200 rounded-xl p-3">
+            <div className="text-xs text-slate-500">Totaal</div>
+            <div className="text-xl font-semibold text-slate-900 tabular-nums">{scholen.length}</div>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-xl p-3">
+            <div className="text-xs text-green-700">Actief</div>
+            <div className="text-xl font-semibold text-green-700 tabular-nums">{counts.actief}</div>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-xl p-3">
+            <div className="text-xs text-amber-700">In proef</div>
+            <div className="text-xl font-semibold text-amber-700 tabular-nums">{counts.proef}</div>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-xl p-3">
+            <div className="text-xs text-slate-500">Leraren totaal</div>
+            <div className="text-xl font-semibold text-slate-900 tabular-nums">{counts.leraren}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      {scholen.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-2xl p-3 mb-5 flex flex-wrap gap-3 items-center">
+          <div className="flex-1 min-w-[200px] relative">
+            <svg
+              className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Zoek school, contact, email…"
+              className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+            className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">Alle status</option>
+            <option value="actief">Actief</option>
+            <option value="proef">Proef</option>
+            <option value="inactief">Inactief</option>
+          </select>
+          {(q || statusFilter !== "all") && (
+            <button
+              onClick={() => {
+                setQ("");
+                setStatusFilter("all");
+              }}
+              className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1.5"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+      )}
+
       {err ? (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg mb-4">{err}</div>
       ) : null}
@@ -295,6 +388,10 @@ export default function ScholenPage() {
             Voeg de eerste school toe
           </button>
         </div>
+      ) : filtered.length === 0 ? (
+        <div className="bg-white border border-dashed border-slate-300 rounded-2xl p-10 text-center">
+          <p className="text-sm text-slate-500">Geen scholen gevonden met deze filters.</p>
+        </div>
       ) : (
         <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
           <table className="w-full text-sm">
@@ -308,32 +405,56 @@ export default function ScholenPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {scholen.map((s) => (
+              {filtered.map((s) => (
                 <tr key={s.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3">
-                    <div className="font-medium text-slate-900">{s.schoolnaam}</div>
-                    {s.notities ? <div className="text-xs text-slate-500 mt-0.5 line-clamp-1">{s.notities}</div> : null}
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 bg-blue-50 text-blue-700 rounded-lg flex items-center justify-center shrink-0 font-semibold text-sm">
+                        {(s.schoolnaam[0] || "?").toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-medium text-slate-900 truncate">{s.schoolnaam}</div>
+                        {s.notities ? (
+                          <div className="text-xs text-slate-500 mt-0.5 line-clamp-1">{s.notities}</div>
+                        ) : null}
+                      </div>
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="text-slate-700">{s.contactpersoon || "—"}</div>
-                    <div className="text-xs text-slate-500">{s.contactEmail}</div>
+                    <a
+                      href={`mailto:${s.contactEmail}`}
+                      className="text-xs text-blue-600 hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {s.contactEmail}
+                    </a>
                   </td>
-                  <td className="px-4 py-3 text-slate-700">{s.lerarenAantal ?? 0}</td>
-                  <td className="px-4 py-3"><StatusBadge status={s.status} /></td>
+                  <td className="px-4 py-3 text-slate-700 tabular-nums">{s.lerarenAantal ?? 0}</td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={s.status} />
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <button
                       onClick={() => setModal(s)}
                       className="text-xs text-blue-600 hover:underline mr-3"
-                    >Bewerken</button>
+                    >
+                      Bewerken
+                    </button>
                     <button
                       onClick={() => handleDelete(s)}
                       className="text-xs text-red-600 hover:underline"
-                    >Verwijderen</button>
+                    >
+                      Verwijderen
+                    </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <div className="px-4 py-2.5 text-xs text-slate-400 border-t border-slate-100">
+            {filtered.length} van {scholen.length} school{scholen.length !== 1 ? "en" : ""}
+          </div>
         </div>
       )}
 

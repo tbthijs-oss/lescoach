@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -63,7 +63,7 @@ function ExpertFormModal({
   onSave,
   onClose,
 }: {
-  expert: Expert | null; // null = new
+  expert: Expert | null;
   onSave: (data: Omit<Expert, "id">) => Promise<void>;
   onClose: () => void;
 }) {
@@ -91,7 +91,8 @@ function ExpertFormModal({
     }
   }
 
-  const inputClass = "w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+  const inputClass =
+    "w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -259,12 +260,21 @@ function DeleteConfirmModal({
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
+type Availability = "all" | "yes" | "no";
+type SortKey = "naam" | "ervaringsjaren" | "regio";
+
 export default function ExpertsPage() {
   const [experts, setExperts] = useState<Expert[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingExpert, setEditingExpert] = useState<Expert | null | "new">(null);
   const [deletingExpert, setDeletingExpert] = useState<Expert | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  // Filters
+  const [q, setQ] = useState("");
+  const [availability, setAvailability] = useState<Availability>("all");
+  const [regio, setRegio] = useState("");
+  const [sortBy, setSortBy] = useState<SortKey>("naam");
 
   function showToast(message: string, type: "success" | "error" = "success") {
     setToast({ message, type });
@@ -285,8 +295,37 @@ export default function ExpertsPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadExperts();
   }, [loadExperts]);
+
+  const regios = useMemo(() => {
+    const set = new Set<string>();
+    experts.forEach((e) => e.regio && set.add(e.regio));
+    return Array.from(set).sort();
+  }, [experts]);
+
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const list = experts.filter((e) => {
+      if (availability === "yes" && !e.beschikbaar) return false;
+      if (availability === "no" && e.beschikbaar) return false;
+      if (regio && e.regio !== regio) return false;
+      if (!needle) return true;
+      const hay = [e.naam, e.titel, e.bio, e.specialisaties, e.email, e.regio]
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(needle);
+    });
+
+    list.sort((a, b) => {
+      if (sortBy === "naam") return a.naam.localeCompare(b.naam, "nl");
+      if (sortBy === "ervaringsjaren") return b.ervaringsjaren - a.ervaringsjaren;
+      if (sortBy === "regio") return a.regio.localeCompare(b.regio, "nl");
+      return 0;
+    });
+    return list;
+  }, [experts, q, availability, regio, sortBy]);
 
   async function handleSave(data: Omit<Expert, "id">) {
     if (editingExpert === "new") {
@@ -324,9 +363,11 @@ export default function ExpertsPage() {
     await loadExperts();
   }
 
+  const activeFilterCount =
+    (q ? 1 : 0) + (availability !== "all" ? 1 : 0) + (regio ? 1 : 0);
+
   return (
     <div>
-      {/* Modals */}
       {editingExpert !== null && (
         <ExpertFormModal
           expert={editingExpert === "new" ? null : editingExpert}
@@ -342,7 +383,6 @@ export default function ExpertsPage() {
         />
       )}
 
-      {/* Toast */}
       {toast && (
         <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium transition-all ${
           toast.type === "success" ? "bg-slate-800 text-white" : "bg-red-600 text-white"
@@ -352,9 +392,9 @@ export default function ExpertsPage() {
       )}
 
       {/* Page header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Experts</h1>
+          <h1 className="text-2xl font-semibold text-slate-900">Experts</h1>
           <p className="text-sm text-slate-500 mt-0.5">Beheer het expertennetwerk van LesCoach</p>
         </div>
         <button
@@ -368,13 +408,76 @@ export default function ExpertsPage() {
         </button>
       </div>
 
+      {/* Filters */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-3 mb-5 flex flex-wrap gap-3 items-center">
+        <div className="flex-1 min-w-[200px] relative">
+          <svg
+            className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Zoek op naam, titel, bio, specialisatie…"
+            className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+        <select
+          value={availability}
+          onChange={(e) => setAvailability(e.target.value as Availability)}
+          className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="all">Alle experts</option>
+          <option value="yes">Alleen beschikbaar</option>
+          <option value="no">Niet beschikbaar</option>
+        </select>
+        <select
+          value={regio}
+          onChange={(e) => setRegio(e.target.value)}
+          className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Alle regio&apos;s</option>
+          {regios.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
+        </select>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as SortKey)}
+          className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="naam">Sorteer: naam</option>
+          <option value="ervaringsjaren">Sorteer: ervaring</option>
+          <option value="regio">Sorteer: regio</option>
+        </select>
+        {activeFilterCount > 0 && (
+          <button
+            onClick={() => {
+              setQ("");
+              setAvailability("all");
+              setRegio("");
+            }}
+            className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1.5"
+          >
+            Reset ({activeFilterCount})
+          </button>
+        )}
+      </div>
+
       <div>
         {loading ? (
           <div className="flex items-center justify-center py-24">
             <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : experts.length === 0 ? (
-          <div className="text-center py-24">
+          <div className="text-center py-24 bg-white border border-dashed border-slate-300 rounded-2xl">
             <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -387,12 +490,17 @@ export default function ExpertsPage() {
               Eerste expert toevoegen
             </button>
           </div>
+        ) : filtered.length === 0 ? (
+          <div className="bg-white border border-dashed border-slate-300 rounded-2xl p-12 text-center">
+            <p className="text-sm text-slate-500">Geen experts gevonden met deze filters.</p>
+          </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-sm text-slate-500 mb-4">{experts.length} expert{experts.length !== 1 ? "s" : ""}</p>
-            {experts.map((expert) => (
+            <p className="text-xs text-slate-500">
+              {filtered.length} van {experts.length} expert{experts.length !== 1 ? "s" : ""}
+            </p>
+            {filtered.map((expert) => (
               <div key={expert.id} className="bg-white border border-slate-200 rounded-2xl px-5 py-4 flex items-center gap-4 shadow-sm hover:border-slate-300 transition-colors">
-                {/* Avatar */}
                 {expert.fotoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={expert.fotoUrl} alt={expert.naam}
@@ -403,13 +511,17 @@ export default function ExpertsPage() {
                   </div>
                 )}
 
-                {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-slate-800">{expert.naam}</span>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${expert.beschikbaar ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
                       {expert.beschikbaar ? "Beschikbaar" : "Niet beschikbaar"}
                     </span>
+                    {expert.ervaringsjaren > 0 && (
+                      <span className="text-xs text-slate-500">
+                        · {expert.ervaringsjaren} jr ervaring
+                      </span>
+                    )}
                   </div>
                   <div className="text-sm text-slate-500 mt-0.5">{expert.titel}</div>
                   {expert.specialisaties && (
@@ -417,12 +529,10 @@ export default function ExpertsPage() {
                   )}
                 </div>
 
-                {/* Regio */}
                 {expert.regio && (
                   <div className="hidden md:block text-xs text-slate-400 shrink-0">📍 {expert.regio}</div>
                 )}
 
-                {/* Actions */}
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => toggleBeschikbaar(expert)}

@@ -132,7 +132,7 @@ export default function JuridischPage() {
     <div className="max-w-3xl">
       <h1 className="text-xl font-bold text-slate-800 mb-1">Juridische regels</h1>
       <p className="text-sm text-slate-500 mb-2">
-        Deze zes wettelijke grenzen zijn ingebakken in Noor's gedrag. Ze kan ze niet overschrijden.
+        Deze zes wettelijke grenzen zijn ingebakken in Noor&apos;s gedrag. Ze kan ze niet overschrijden.
       </p>
       <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-8 text-sm text-blue-800">
         Deze regels zijn hardcoded in de systeem-instructies van Noor. Ze worden niet zichtbaar voor gebruikers, maar bepalen altijd haar antwoorden.
