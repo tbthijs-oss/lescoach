@@ -866,7 +866,7 @@ export default function ChatPage() {
   const [done, setDone] = useState(false);
   const [selectedExpert, setSelectedExpert] = useState<Expert | null>(null);
   const [piiWarning, setPiiWarning] = useState(false);
-  const [mobileSheet, setMobileSheet] = useState<"hidden" | "peek" | "full">("hidden");
+  const [mobileView, setMobileView] = useState<"chat" | "results">("chat");
   const [authedUser, setAuthedUser] = useState<{ naam: string; rol: "admin" | "leraar"; schoolnaam?: string } | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<Array<{ id: string; datum: string; primaryKaart: string; samenvatting: string; zoekterm: string; categorie: string }>>([]);
@@ -1009,7 +1009,9 @@ export default function ChatPage() {
         setKenniskaarten(data.kenniskaarten);
         setDone(true);
         if (typeof window !== "undefined" && window.innerWidth < 1024) {
-          setMobileSheet("peek");
+          // Mobiel: schakel direct naar het volledige resultaten-scherm.
+          // De leerkracht kan via "← Terug naar gesprek" terug.
+          setMobileView("results");
         }
       }
       if (data.experts?.length > 0) {
@@ -1050,7 +1052,9 @@ export default function ChatPage() {
     setSelectedExpert(null);
     setAnalysis(null);
     setPrimaryKaartId(null);
+    setAlternativeKaartIds([]);
     setPiiWarning(false);
+    setMobileView("chat");
     // trigger fresh start — show hardcoded opener instantly
     setTimeout(() => {
       setStarted(true);
@@ -1248,12 +1252,12 @@ export default function ChatPage() {
             </div>
           )}
 
-          {/* Mobile: done banner (sheet trigger) */}
-          {done && kenniskaarten.length > 0 && mobileSheet === "hidden" && (
+          {/* Mobile: done banner — opens the full-page results view */}
+          {done && kenniskaarten.length > 0 && (
             <div className="lg:hidden shrink-0 mx-4 mb-3">
               <button
-                onClick={() => setMobileSheet("peek")}
-                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-2xl p-4 flex items-center justify-between shadow-sm"
+                onClick={() => setMobileView("results")}
+                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-2xl p-4 flex items-center justify-between shadow-sm active:scale-[0.99] transition-transform"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center">
@@ -1262,12 +1266,12 @@ export default function ChatPage() {
                     </svg>
                   </div>
                   <div className="text-left">
-                    <div className="text-sm font-semibold">Jouw resultaten</div>
+                    <div className="text-sm font-semibold">Bekijk resultaten</div>
                     <div className="text-xs text-blue-100">{kenniskaarten.length} kenniskaart{kenniskaarten.length === 1 ? "" : "en"} &middot; {displayExperts.length} expert{displayExperts.length === 1 ? "" : "s"}</div>
                   </div>
                 </div>
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
               </button>
             </div>
@@ -1343,64 +1347,40 @@ export default function ChatPage() {
         )}
       </div>
 
-      {/* Mobile bottom-sheet */}
-      {done && kenniskaarten.length > 0 && (
-        <>
-          {/* Dim backdrop when full */}
-          {mobileSheet === "full" && (
-            <div
-              className="lg:hidden fixed inset-0 bg-black/30 z-30 print:hidden"
-              onClick={() => setMobileSheet("peek")}
-              aria-hidden
-            />
-          )}
-          <div
-            className={`lg:hidden fixed inset-x-0 bottom-0 z-40 bg-white rounded-t-3xl shadow-[0_-8px_32px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out print:hidden ${
-              mobileSheet === "hidden"
-                ? "translate-y-full"
-                : mobileSheet === "peek"
-                ? "translate-y-[calc(100%-180px)]"
-                : "translate-y-0"
-            }`}
-            style={{ maxHeight: "92vh", height: "92vh" }}
-          >
+      {/* Mobile: full-page results view — replaces the chat on small screens */}
+      {done && kenniskaarten.length > 0 && mobileView === "results" && (
+        <div className="lg:hidden fixed inset-0 z-40 flex flex-col bg-gradient-to-b from-amber-50/30 to-white print:hidden">
+          {/* Sticky top bar with back button */}
+          <div className="shrink-0 bg-white/95 backdrop-blur border-b border-slate-200 px-3 py-2.5 flex items-center justify-between gap-2 sticky top-0">
             <button
-              onClick={() => setMobileSheet(mobileSheet === "full" ? "peek" : "full")}
-              className="w-full pt-2 pb-1 flex flex-col items-center"
-              aria-label={mobileSheet === "full" ? "Minimaliseer" : "Open"}
+              onClick={() => setMobileView("chat")}
+              className="flex items-center gap-1.5 text-sm font-medium text-slate-700 hover:text-blue-700 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              aria-label="Terug naar het gesprek"
             >
-              <div className="w-12 h-1.5 bg-slate-300 rounded-full" />
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+              <span>Terug naar gesprek</span>
             </button>
-            <div className="flex items-center justify-between px-5 pb-2 border-b border-slate-100">
-              <div>
-                <div className="text-sm font-semibold text-slate-900">Jouw resultaten</div>
-                <div className="text-[11px] text-slate-500">
-                  {kenniskaarten.length} kaart{kenniskaarten.length === 1 ? "" : "en"} &middot; {displayExperts.length} expert{displayExperts.length === 1 ? "" : "s"}
-                </div>
-              </div>
-              <button
-                onClick={() => setMobileSheet("hidden")}
-                className="text-slate-400 hover:text-slate-600 p-1"
-                aria-label="Sluiten"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="overflow-y-auto bg-gradient-to-b from-amber-50/30 to-white" style={{ height: "calc(92vh - 52px)" }}>
-              <ResultsPanel
-                analysis={analysis}
-                kenniskaarten={kenniskaarten}
-                primaryKaartId={primaryKaartId}
-              alternativeKaartIds={alternativeKaartIds}
-                experts={displayExperts}
-                onContactExpert={(e) => setSelectedExpert(e)}
-                onNewConversation={resetChat}
-              />
+            <div className="text-[11px] text-slate-500 text-right leading-tight">
+              {kenniskaarten.length} kaart{kenniskaarten.length === 1 ? "" : "en"}
+              <br />
+              {displayExperts.length} expert{displayExperts.length === 1 ? "" : "s"}
             </div>
           </div>
-        </>
+          {/* Scrollable results body */}
+          <div className="flex-1 overflow-y-auto">
+            <ResultsPanel
+              analysis={analysis}
+              kenniskaarten={kenniskaarten}
+              primaryKaartId={primaryKaartId}
+              alternativeKaartIds={alternativeKaartIds}
+              experts={displayExperts}
+              onContactExpert={(e) => setSelectedExpert(e)}
+              onNewConversation={resetChat}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
