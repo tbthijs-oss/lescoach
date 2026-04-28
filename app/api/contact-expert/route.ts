@@ -91,7 +91,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const expertEmail = process.env.EXPERT_EMAIL || "tbthijs@gmail.com";
+    // Stuur naar het specifieke expert-emailadres als die geselecteerd is,
+    // anders val terug op de EXPERT_EMAIL env var (fallback-inbox).
+    const expertRecord = body?.expert as { email?: string } | null;
+    const expertEmail =
+      (expertRecord?.email && isValidEmail(expertRecord.email) ? expertRecord.email : null) ||
+      process.env.EXPERT_EMAIL ||
+      "tbthijs@gmail.com";
     const resendKey = process.env.RESEND_API_KEY;
 
     const reportHtml = buildReportHtml(contact, messages, kenniskaarten);

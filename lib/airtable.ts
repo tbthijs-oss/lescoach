@@ -133,21 +133,32 @@ export async function searchKenniskaarten(
     return { kenniskaart: k, score };
   });
 
-  const matched = scored
-    .filter((s) => s.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3)
-    .map((s) => s.kenniskaart);
+  // Score-thresholds:
+  //   ≥10 = directe titel/categorie/full-query hit (sterk)
+  //   5-9 = één cluster-match of meerdere partial-hits (acceptabel)
+  //   1-4 = los toevallig woord — meestal noise, niet tonen
+  // Een kaart die met 'spastisch' matcht via Achondroplasie scoort 2 — uitsluiten.
+  const RELEVANCE_FLOOR = 5;
+  const top = scored
+    .filter((s) => s.score >= RELEVANCE_FLOOR)
+    .sort((a, b) => b.score - a.score);
 
-  // Fallback: if nothing matched, return the top 3 by alphabetical order
-  // so the conversation always produces some result. We log this as a
-  // "coverage miss" — it tells us which queries don't match any kenniskaart,
-  // which is signal for content gaps we should fill.
+  // Daarnaast: relatieve gap-check. Als kaart #1 sterk is (>=10) en kaart #3
+  // is meer dan 4× zwakker, knip kaart #3 — anders sleept een zwakke 'topical
+  // adjacent' kaart mee in de UI.
+  const matched: Kenniskaart[] = [];
+  for (let i = 0; i < Math.min(top.length, 3); i++) {
+    if (i > 0 && top[0].score >= 10 && top[i].score * 4 < top[0].score) break;
+    matched.push(top[i].kenniskaart);
+  }
+
   if (matched.length === 0) {
+    // We loggen de miss en geven [] terug — de chat-route triggert dan een
+    // extra doorvraag aan Noor in plaats van willekeurige kaarten te tonen.
     console.warn(
-      `[coverage-miss] geen kenniskaart-match voor zoekterm="${query}" trefwoorden="${trefwoorden.join(",")}"`
+      `[coverage-miss] geen kenniskaart-match >=${RELEVANCE_FLOOR} voor zoekterm="${query}" trefwoorden="${trefwoorden.join(",")}"`
     );
-    return all.slice(0, 3);
+    return [];
   }
 
   return matched;
@@ -316,12 +327,29 @@ export async function matchExperts(
     for (const w of needleWords) {
       if (specWords.has(w)) score += 1;
     }
+    // Generalist-penalty: een expert die specialisaties heeft in >4 clusters
+    // is een catch-all en raakt vrijwel elk onderwerp. Niet doorslaggevend
+    // voor de #1-positie, wél voor het tweede-slot. -4 zorgt dat een
+    // echte specialist een generalist verslaat.
+    if (specClusters.size > 4) score -= 4;
     return { expert, score };
   });
 
-  return scored
-    .filter((s) => s.score > 0 || all.length <= limit)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
-    .map((s) => s.expert);
+  // Score-floor: alleen experts met een substantiële match. Onder de 5
+  // (= minder dan één cluster-hit) is de match te zwak om als 'passend'
+  // te presenteren — beter geen tweede expert dan een misleidende.
+  const RELEVANCE_FLOOR = 5;
+  const top = scored
+    .filter((s) => s.score >= RELEVANCE_FLOOR)
+    .sort((a, b) => b.score - a.score);
+
+  // Relatieve gap-check op de tweede positie: als #2 minder dan de helft
+  // scoort van #1, laat #2 weg. Voorkomt dat een zwakke generalist
+  // naast een sterke specialist verschijnt.
+  const matched: Expert[] = [];
+  for (let i = 0; i < Math.min(top.length, limit); i++) {
+    if (i > 0 && top[i].score * 2 < top[0].score) break;
+    matched.push(top[i].expert);
+  }
+  return matched;
 }

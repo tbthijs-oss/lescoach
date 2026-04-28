@@ -9,6 +9,7 @@ import {
   magicLinkIsFresh,
   serializeSession,
   AUTH_COOKIE,
+  MODE_COOKIE,
 } from "@/lib/auth";
 
 /**
@@ -71,12 +72,33 @@ export async function GET(request: NextRequest) {
   // Admin → /beheer/scholen of /school, leraar → /chat
   const redirectTo = leraar.rol === "admin" ? "/school" : "/chat";
   const response = NextResponse.redirect(new URL(redirectTo, origin));
+
+  // ── Persistent vs session-only cookie
+  // Magic-link bevat ?p=0 als de gebruiker "blijf ingelogd" UIT had staan.
+  // Default = persistent (cookie 90 dagen + sliding refresh).
+  const persistent = request.nextUrl.searchParams.get("p") !== "0";
+
   response.cookies.set(AUTH_COOKIE.name, sessionValue, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    maxAge: AUTH_COOKIE.maxAge,
     path: "/",
+    // Bij persistent: 90 dagen. Bij session-only: geen maxAge → cookie wordt
+    // door de browser gewist zodra het venster sluit.
+    ...(persistent ? { maxAge: AUTH_COOKIE.maxAge } : {}),
   });
+
+  // Marker-cookie die /api/auth/me gebruikt om te beslissen of de
+  // hoofdsessie bij elk bezoek opnieuw verlengd moet worden (sliding).
+  if (persistent) {
+    response.cookies.set(MODE_COOKIE.name, MODE_COOKIE.persistentValue, {
+      httpOnly: false, // mag client-side gelezen worden, geen security-impact
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: MODE_COOKIE.maxAge,
+    });
+  }
+
   return response;
 }

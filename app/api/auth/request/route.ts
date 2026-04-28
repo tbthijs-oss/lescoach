@@ -24,8 +24,17 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    // "Blijf ingelogd op dit apparaat" — staat default aan in de UI; off bij gedeelde computers.
+    const persistent = body.persistent !== false;
 
-    if (!email || !email.includes("@")) {
+    // Strikte e-mailvalidatie: lengte (RFC 5321), CRLF (header-injectie),
+    // basis-vorm. Voorkomt DoS via 100KB-strings en injectie via Resend.
+    if (
+      !email ||
+      email.length > 320 ||
+      /[\r\n]/.test(email) ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    ) {
       return NextResponse.json({ error: "Geen geldig e-mailadres." }, { status: 400 });
     }
 
@@ -45,7 +54,7 @@ export async function POST(request: NextRequest) {
       await createMagicLink(token, leraar.id, verlooptOp);
 
       const appUrl = process.env.APP_URL || "https://lescoach.nl";
-      const loginUrl = `${appUrl.replace(/\/$/, "")}/auth/verify?token=${encodeURIComponent(token)}`;
+      const loginUrl = `${appUrl.replace(/\/$/, "")}/auth/verify?token=${encodeURIComponent(token)}${persistent ? "" : "&p=0"}`;
 
       const school = leraar.schoolId ? await getSchool(leraar.schoolId) : null;
       const isFirstLogin = leraar.status === "uitgenodigd";

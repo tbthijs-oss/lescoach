@@ -12,7 +12,9 @@ import { safeEqual } from "@/lib/safeEqual";
 export { safeEqual };
 
 const COOKIE_NAME = "lescoach-leraar";
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
+const MODE_COOKIE_NAME = "lescoach-leraar-mode";
+const LONG_SESSION_MAX_AGE = 60 * 60 * 24 * 90; // 90 days — leerkracht koos "blijf ingelogd"
+const COOKIE_MAX_AGE = LONG_SESSION_MAX_AGE; // backwards-compat alias
 const MAGIC_LINK_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
 function secret(): string {
@@ -74,5 +76,20 @@ export function parseSession(value: string | undefined | null): Session | null {
 
 export const AUTH_COOKIE = {
   name: COOKIE_NAME,
-  maxAge: COOKIE_MAX_AGE,
+  /** maxAge voor "blijf ingelogd" sessies (90 dagen). Bij een session-only cookie laten we maxAge weg. */
+  maxAge: LONG_SESSION_MAX_AGE,
+};
+
+/**
+ * Marker-cookie die naast de hoofdsessie wordt gezet om te weten of de
+ * gebruiker "blijf ingelogd op dit apparaat" heeft aangevinkt. Niet
+ * httpOnly, niet vertrouwd voor auth — het enige doel is dat de server
+ * weet of hij de hoofdcookie bij een sliding refresh weer met maxAge
+ * moet zetten of niet.
+ */
+export const MODE_COOKIE = {
+  name: MODE_COOKIE_NAME,
+  /** Waarden: "p" = persistent (90d), afwezig = session-only. */
+  persistentValue: "p",
+  maxAge: LONG_SESSION_MAX_AGE,
 };

@@ -85,7 +85,7 @@ function parseNoorData(text: string): {
 export async function POST(request: NextRequest) {
   // Rate-limit chat: 20 berichten per 10 min per IP. Voorkomt dat iemand met
   // geldige sessie de Anthropic-rekening opblaast. Legitiem gebruik blijft
-  // ruim onder deze limiet — een intake is 4-5 turns.
+  // ruim onder deze limiet — een intake is 5-9 turns.
   const rl = rateLimit(`chat:${clientIdFromRequest(request)}`, 20, 10 * 60_000);
   if (!rl.ok) return rateLimitResponse(rl) as unknown as Response;
 
@@ -136,16 +136,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Tel hoeveel user-turns er al zijn. We hanteren TWEE harde grenzen:
-    //   - Onder 3 user-turns: tool_choice "none" — Noor MOET nog een vraag stellen.
-    //     Voorkomt dat ze al na 1-2 zinnen springt naar het rapport (te snel,
+    //   - Onder 4 user-turns: tool_choice "none" — Noor MOET nog een vraag stellen.
+    //     Voorkomt dat ze al na 1-3 zinnen springt naar het rapport (te snel,
     //     leerkracht voelt zich niet gehoord).
-    //   - Vanaf 4 user-turns: tool_choice "tool" — Noor MOET zoek_kenniskaarten aanroepen.
-    //     Voorkomt een 5e vraag.
+    //   - Vanaf 9 user-turns: tool_choice "tool" — Noor MOET zoek_kenniskaarten aanroepen.
+    //     Voorkomt een 10e vraag.
     const userTurnCount = messages.filter((m) => m.role === "user").length;
-    if (userTurnCount >= 4) {
+    if (userTurnCount >= 9) {
       personalizedSystem += `\n\n## DIRECTIEF — intake is klaar\nDe leerkracht heeft nu ${userTurnCount} berichten gegeven. Je mag GEEN nieuwe vraag meer stellen. Je volgende bericht is de check-in van Fase 1B (\"Ik hoor: ... Ik ga nu de kenniskaarten erbij pakken — één momentje.\") en direct daarna roep je zoek_kenniskaarten aan met wat je hebt. Onvolledige info is geen blocker — werk met wat voorligt.`;
-    } else if (userTurnCount < 3) {
-      personalizedSystem += `\n\n## DIRECTIEF — intake nog niet klaar\nDe leerkracht heeft pas ${userTurnCount} bericht${userTurnCount === 1 ? "" : "en"} gegeven. Je mag NU NOG GEEN tool aanroepen en GEEN eindrapport schrijven. Stel één gerichte vervolgvraag (volg de regels van Fase 1/1A) met chip-suggesties. Een rapport na minder dan drie antwoorden voelt voor de leerkracht alsof je niet écht geluisterd hebt — dat willen we voorkomen.`;
+    } else if (userTurnCount < 4) {
+      personalizedSystem += `\n\n## DIRECTIEF — intake nog niet klaar\nDe leerkracht heeft pas ${userTurnCount} bericht${userTurnCount === 1 ? "" : "en"} gegeven. Je mag NU NOG GEEN tool aanroepen en GEEN eindrapport schrijven. Stel één gerichte vervolgvraag (volg de regels van Fase 1/1A/1C) met chip-suggesties. Een rapport na minder dan vier antwoorden voelt voor de leerkracht alsof je niet écht geluisterd hebt — dat willen we voorkomen.`;
     }
 
     const {
@@ -186,11 +186,11 @@ export async function POST(request: NextRequest) {
     ];
 
     // Tool_choice forcing — twee richtingen:
-    //   forceToolCall (4+ turns)  -> verplicht zoek_kenniskaarten aanroep
-    //   blockToolCall (<3 turns)  -> verbied tool-aanroep, Noor moet doorvragen
-    // Tussen 3 en 4 turns mag Noor zelf kiezen (auto).
-    const forceToolCall = userTurnCount >= 4;
-    const blockToolCall = userTurnCount < 3;
+    //   forceToolCall (9+ turns)  -> verplicht zoek_kenniskaarten aanroep
+    //   blockToolCall (<4 turns)  -> verbied tool-aanroep, Noor moet doorvragen
+    // Tussen 4 en 9 turns mag Noor zelf kiezen (auto).
+    const forceToolCall = userTurnCount >= 9;
+    const blockToolCall = userTurnCount < 4;
 
     type ToolChoice = NonNullable<Anthropic.MessageCreateParamsNonStreaming["tool_choice"]>;
     const toolChoiceOverride: ToolChoice | undefined = forceToolCall

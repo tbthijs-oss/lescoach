@@ -17,6 +17,10 @@ function LoginForm() {
   const errorMessage = errorCode ? ERROR_MESSAGES[errorCode] : null;
 
   const [email, setEmail] = useState("");
+  // "Blijf ingelogd op dit apparaat" — default aan. School-gedeelde computers
+  // kunnen 'm uitvinken; dan wordt de cookie een session-only cookie (weg bij
+  // sluiten browser) in plaats van 90 dagen.
+  const [persistent, setPersistent] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -29,7 +33,7 @@ function LoginForm() {
       const res = await fetch("/api/auth/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ email: email.trim(), persistent }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -108,6 +112,23 @@ function LoginForm() {
             className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
+
+        <label className="flex items-start gap-2.5 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={persistent}
+            onChange={(e) => setPersistent(e.target.checked)}
+            className="mt-0.5 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+          />
+          <span className="text-sm text-slate-700 leading-snug">
+            Blijf ingelogd op dit apparaat
+            <span className="block text-xs text-slate-500">
+              Aan: 90 dagen ingelogd, automatisch verlengd zolang je actief bent.
+              Uit: alleen voor deze sessie — handig op een gedeelde of openbare computer.
+            </span>
+          </span>
+        </label>
+
         <button
           type="submit"
           disabled={submitting || !email}

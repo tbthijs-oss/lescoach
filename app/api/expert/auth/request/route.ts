@@ -19,7 +19,14 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-    if (!email || !email.includes("@")) {
+    // Strikte e-mailvalidatie: lengte (RFC 5321), CRLF (header-injectie),
+    // basis-vorm. Voorkomt DoS via 100KB-strings en injectie via Resend.
+    if (
+      !email ||
+      email.length > 320 ||
+      /[\r\n]/.test(email) ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    ) {
       return NextResponse.json({ error: "Geen geldig e-mailadres." }, { status: 400 });
     }
 

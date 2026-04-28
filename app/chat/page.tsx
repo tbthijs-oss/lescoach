@@ -3,70 +3,26 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { NoorAvatar } from "@/components/JeroenAvatar";
+import {
+  ReportView,
+  ExpertModal,
+  type Kenniskaart,
+  type Expert,
+  type Message,
+  type NoorAnalysis,
+} from "@/components/ReportView";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface Kenniskaart {
-  id: string;
-  titel: string;
-  categorie: string;
-  samenvatting: string;
-  watIsHet: string;
-  gevolgen: string;
-  tips: string;
-  trefwoorden: string[];
-  pdfUrl: string;
-  bronUrl: string;
-}
-
-interface Expert {
-  id: string;
-  naam: string;
-  titel: string;
-  bio: string;
-  specialisaties: string[];
-  email: string;
-  telefoon: string;
-  linkedin: string;
-  fotoUrl: string;
-  beschikbaar: boolean;
-  ervaringsjaren: number;
-  regio: string;
-  taal: string[];
-}
-
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
-
-interface ContactForm {
-  naam: string;
-  school: string;
-  email: string;
-  telefoon: string;
-  opmerkingen: string;
-}
-
-interface NoorAnalysis {
-  profileLine: string;
-  primaryKaartTitel: string;
-  alternativeKaartTitels: string[];
-  insight: string;
-  acties: string[];
-  overleg: string;
-  signaal: string;
-  contextChips: string[];
-}
+// sessionStorage key voor de /resultaten pagina — moet matchen met
+// app/resultaten/page.tsx.
+const RESULTS_STORAGE_KEY = "lescoach:last-results:v1";
 
 // ─── Typing indicator ─────────────────────────────────────────────────────────
 
 function TypingIndicator() {
   return (
     <div className="flex items-start gap-3">
-      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-        <span className="text-white text-xs font-bold">N</span>
-      </div>
+      <NoorAvatar size={32} className="shrink-0 mt-0.5" alt="" />
       <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
         <div className="flex gap-1 items-center h-5">
           <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:0ms]" />
@@ -154,30 +110,44 @@ function SpeakerButton({ text }: { text: string }) {
 // SpeechRecognition is not in standard TS lib types yet
 /* eslint-disable @typescript-eslint/no-explicit-any */
 interface MicButtonProps {
+  /** Called repeatedly tijdens dicteren met de volledige getranscribeerde tekst zoals die in het invoerveld moet staan (existing text + dictation). */
   onTranscript: (text: string) => void;
+  /** Snapshot van de huidige textarea-inhoud op het moment dat de gebruiker op de microfoon-knop drukt. Wordt vóór de gedicteerde tekst geplaatst zodat eerder getypte tekst niet wordt overschreven. */
+  getCurrentInput?: () => string;
   disabled?: boolean;
 }
 
-function MicButton({ onTranscript, disabled }: MicButtonProps) {
+function MicButton({ onTranscript, getCurrentInput, disabled }: MicButtonProps) {
   const [listening, setListening] = useState(false);
-  const [supported, setSupported] = useState(true);
+  const [supported, setSupported] = useState<boolean | null>(null); // null until we have probed
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const recRef = useRef<any>(null);
 
   useEffect(() => {
     const w = window as any;
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
-    if (!SR) setSupported(false);
+    setSupported(!!SR);
   }, []);
 
   function start() {
     if (disabled) return;
     const w = window as any;
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
-    if (!SR) return;
+    if (!SR) {
+      setErrorMsg("Dicteren werkt nog niet in deze browser. Probeer Chrome, Edge of Safari.");
+      return;
+    }
+    setErrorMsg(null);
     const rec = new SR();
     rec.lang = "nl-NL";
     rec.interimResults = true;
-    rec.continuous = false;
+    // Continuous: gebruiker kan rustig nadenken zonder dat de opname stopt.
+    // Stoppen gaat via de stop-knop of door nogmaals op de mic te tikken.
+    rec.continuous = true;
+
+    // Snapshot van de bestaande tekst — zodat we die niet overschrijven.
+    const baseText = (getCurrentInput?.() ?? "").trim();
+
     let finalTranscript = "";
     rec.onresult = (e: any) => {
       let interim = "";
@@ -186,39 +156,122 @@ function MicButton({ onTranscript, disabled }: MicButtonProps) {
         if (r.isFinal) finalTranscript += r[0].transcript;
         else interim += r[0].transcript;
       }
-      onTranscript((finalTranscript + interim).trim());
+      const dictated = (finalTranscript + interim).trim();
+      const combined = baseText
+        ? `${baseText} ${dictated}`.trim()
+        : dictated;
+      onTranscript(combined);
     };
-    rec.onerror = () => setListening(false);
+
+    rec.onerror = (e: any) => {
+      setListening(false);
+      // Friendly error labels per officiële SpeechRecognitionErrorEvent.error waarden.
+      const code = e?.error || "unknown";
+      switch (code) {
+        case "not-allowed":
+        case "service-not-allowed":
+          setErrorMsg("Microfoon-toegang is geweigerd. Sta hem toe in je browser-instellingen en probeer opnieuw.");
+          break;
+        case "no-speech":
+          setErrorMsg("Niets gehoord — spreek wat luider of dichter bij de microfoon.");
+          break;
+        case "audio-capture":
+          setErrorMsg("Geen microfoon gevonden. Controleer of je apparaat een werkende microfoon heeft.");
+          break;
+        case "network":
+          setErrorMsg("Verbindingsprobleem met de spraakherkenning. Probeer het zo nog eens.");
+          break;
+        case "aborted":
+          // door de gebruiker gestopt — geen foutmelding nodig.
+          break;
+        default:
+          setErrorMsg(`Dicteren werkte even niet (${code}). Probeer het opnieuw.`);
+      }
+    };
     rec.onend = () => setListening(false);
+
     recRef.current = rec;
     setListening(true);
-    try { rec.start(); } catch { setListening(false); }
+    try {
+      rec.start();
+    } catch (err: any) {
+      setListening(false);
+      // InvalidStateError: bv. al actief — een second click stopt 'm dan ook.
+      setErrorMsg("Kon niet starten met dicteren — probeer het opnieuw.");
+    }
   }
 
   function stop() {
-    recRef.current?.stop();
+    try { recRef.current?.stop(); } catch {}
     setListening(false);
   }
 
-  if (!supported) return null;
+  // Tijdens probing nog niets renderen.
+  if (supported === null) return null;
+
+  // Niet-ondersteunde browser: toon een uitgeschakelde knop met uitleg
+  // — beter dan onzichtbaar zijn want anders denkt de leerkracht 'er is geen
+  // dicteer-feature' terwijl het in een andere browser wel zou werken.
+  if (!supported) {
+    return (
+      <button
+        type="button"
+        disabled
+        aria-label="Dicteren niet ondersteund in deze browser"
+        title="Dicteren werkt nog niet in deze browser. Probeer Chrome, Edge of Safari."
+        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-slate-100 text-slate-300 cursor-not-allowed"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-14 0m7 7v4m-4 0h8M12 3a3 3 0 00-3 3v5a3 3 0 006 0V6a3 3 0 00-3-3z" />
+          <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" strokeWidth={2} />
+        </svg>
+      </button>
+    );
+  }
 
   return (
-    <button
-      type="button"
-      onClick={listening ? stop : start}
-      disabled={disabled}
-      aria-label={listening ? "Stop dicteren" : "Dicteer je bericht"}
-      title={listening ? "Stop dicteren" : "Spreek je bericht in"}
-      className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all shrink-0 ${
-        listening
-          ? "bg-rose-100 text-rose-600 ring-2 ring-rose-300 animate-pulse"
-          : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700"
-      } disabled:opacity-50`}
-    >
-      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-14 0m7 7v4m-4 0h8M12 3a3 3 0 00-3 3v5a3 3 0 006 0V6a3 3 0 00-3-3z" />
-      </svg>
-    </button>
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        onClick={listening ? stop : start}
+        disabled={disabled}
+        aria-label={listening ? "Stop dicteren" : "Dicteer je bericht"}
+        title={listening ? "Stop dicteren" : "Spreek je bericht in"}
+        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+          listening
+            ? "bg-rose-100 text-rose-600 ring-2 ring-rose-300 animate-pulse"
+            : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700"
+        } disabled:opacity-50`}
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-14 0m7 7v4m-4 0h8M12 3a3 3 0 00-3 3v5a3 3 0 006 0V6a3 3 0 00-3-3z" />
+        </svg>
+      </button>
+      {/* Inline error toast — verdwijnt automatisch na 6 sec. */}
+      {errorMsg && (
+        <div
+          role="alert"
+          className="absolute bottom-full left-0 mb-2 w-64 sm:w-72 bg-amber-50 border border-amber-200 text-amber-900 text-xs px-3 py-2 rounded-lg shadow-lg z-10"
+          onAnimationEnd={() => setTimeout(() => setErrorMsg(null), 6000)}
+        >
+          <div className="flex items-start gap-2">
+            <svg className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16a2 2 0 001.73 3z" />
+            </svg>
+            <span className="flex-1 leading-snug">{errorMsg}</span>
+            <button
+              onClick={() => setErrorMsg(null)}
+              aria-label="Sluiten"
+              className="text-amber-600 hover:text-amber-800 -mr-1 -my-0.5"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -257,598 +310,6 @@ function ChipRow({
   );
 }
 
-// ─── Kenniskaart card (collapsible, primary marker) ───────────────────────────
-
-function KenniskaartCard({
-  kaart,
-  isPrimary,
-  defaultOpen,
-}: {
-  kaart: Kenniskaart;
-  isPrimary?: boolean;
-  defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = useState(!!defaultOpen);
-  return (
-    <div
-      className={`rounded-2xl overflow-hidden shadow-sm border ${
-        isPrimary ? "border-blue-300 ring-1 ring-blue-200 bg-white" : "border-blue-100 bg-white"
-      }`}
-    >
-      <div className={`px-4 py-3 ${isPrimary ? "bg-blue-100/70" : "bg-blue-50"} flex items-start justify-between gap-3`}>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-medium text-blue-600 uppercase tracking-wide">
-              {kaart.categorie}
-            </span>
-            {isPrimary && (
-              <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wide bg-blue-200/70 px-2 py-0.5 rounded-full">
-                Beste match
-              </span>
-            )}
-          </div>
-          <h3 className="font-semibold text-slate-800 mt-0.5 break-words">{kaart.titel}</h3>
-        </div>
-        <button
-          onClick={() => setOpen(!open)}
-          className="shrink-0 text-blue-600 hover:text-blue-800 text-sm font-medium"
-        >
-          {open ? "Minder" : "Meer"}
-        </button>
-      </div>
-
-      <div className="px-4 py-3">
-        <p className="text-sm text-slate-600 leading-relaxed">{kaart.samenvatting}</p>
-      </div>
-
-      {open && (
-        <div className="border-t border-slate-100 px-4 py-3 space-y-4">
-          {kaart.watIsHet && (
-            <div>
-              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Wat is het?</h4>
-              <p className="text-sm text-slate-700 leading-relaxed">{kaart.watIsHet}</p>
-            </div>
-          )}
-          {kaart.gevolgen && (
-            <div>
-              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Gevolgen in de klas</h4>
-              <p className="text-sm text-slate-700 leading-relaxed">{kaart.gevolgen}</p>
-            </div>
-          )}
-          {kaart.tips && (
-            <div>
-              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Tips voor de leerkracht</h4>
-              <p className="text-sm text-slate-700 leading-relaxed">{kaart.tips}</p>
-            </div>
-          )}
-          {kaart.trefwoorden.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {kaart.trefwoorden.map((t) => (
-                <span key={t} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{t}</span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="px-4 py-2 border-t border-slate-100 flex gap-3">
-        {kaart.pdfUrl && (
-          <a href={kaart.pdfUrl} target="_blank" rel="noopener noreferrer"
-            className="text-xs text-blue-600 hover:underline flex items-center gap-1">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Download PDF
-          </a>
-        )}
-        {kaart.bronUrl && (
-          <a href={kaart.bronUrl} target="_blank" rel="noopener noreferrer"
-            className="text-xs text-slate-500 hover:underline flex items-center gap-1">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-            Meer informatie
-          </a>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Expert card ──────────────────────────────────────────────────────────────
-
-function ExpertCard({ expert, onContact }: { expert: Expert; onContact: (e: Expert) => void }) {
-  const initials = expert.naam
-    .split(" ")
-    .filter((w) => w.match(/^[A-Z]/))
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("");
-
-  return (
-    <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-5 text-white shadow-lg">
-      <div className="flex items-start gap-4">
-        {expert.fotoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={expert.fotoUrl} alt={expert.naam}
-            className="w-12 h-12 rounded-full object-cover shrink-0 border-2 border-white/30" />
-        ) : (
-          <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center shrink-0 text-white font-bold text-lg">
-            {initials || expert.naam[0]}
-          </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <div className="font-bold text-base">{expert.naam}</div>
-          <div className="text-blue-200 text-xs mt-0.5">{expert.titel}</div>
-          {expert.ervaringsjaren > 0 && (
-            <div className="text-blue-200 text-xs mt-0.5">{expert.ervaringsjaren} jaar ervaring</div>
-          )}
-          <p className="text-blue-100 text-xs mt-2 leading-relaxed line-clamp-3">{expert.bio}</p>
-          {expert.regio && (
-            <div className="text-blue-200 text-xs mt-1.5">📍 {expert.regio}</div>
-          )}
-        </div>
-      </div>
-      <button
-        onClick={() => onContact(expert)}
-        className="mt-4 w-full bg-white text-blue-700 hover:bg-blue-50 font-semibold text-sm py-2.5 rounded-xl transition-colors"
-      >
-        Vraag advies aan {expert.naam.split(" ")[0]} →
-      </button>
-    </div>
-  );
-}
-
-// ─── Expert contact modal ─────────────────────────────────────────────────────
-
-function ExpertModal({
-  expert,
-  messages,
-  kenniskaarten,
-  onClose,
-}: {
-  expert: Expert;
-  messages: Message[];
-  kenniskaarten: Kenniskaart[];
-  onClose: () => void;
-}) {
-  const [form, setForm] = useState<ContactForm>({ naam: "", school: "", email: "", telefoon: "", opmerkingen: "" });
-  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
-
-  function update(field: keyof ContactForm, value: string) {
-    setForm((f) => ({ ...f, [field]: value }));
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setStatus("sending");
-    try {
-      const res = await fetch("/api/contact-expert", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages, kenniskaarten, contact: form, expert }),
-      });
-      if (!res.ok) throw new Error();
-      setStatus("sent");
-    } catch {
-      setStatus("error");
-    }
-  }
-
-  const initials = expert.naam.split(" ").filter((w) => w.match(/^[A-Z]/)).slice(0, 2).map((w) => w[0]).join("");
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
-
-        {status === "sent" ? (
-          <div className="p-10 text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h2 className="text-xl font-bold text-slate-800 mb-2">Aanvraag verstuurd!</h2>
-            <p className="text-slate-500 text-sm mb-6">
-              {expert.naam} ontvangt jouw aanvraag met het volledige gespreksverslag en de gevonden kenniskaarten. Je hoort zo snel mogelijk van ons.
-            </p>
-            <button onClick={onClose} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors">
-              Sluiten
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="px-6 py-5 bg-gradient-to-r from-blue-600 to-blue-700 text-white shrink-0">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-bold">Vraag advies aan een expert</h2>
-                  <p className="text-blue-200 text-sm mt-0.5">Het volledige rapport wordt automatisch meegestuurd</p>
-                </div>
-                <button onClick={onClose} className="text-blue-200 hover:text-white p-1 rounded-lg">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="mt-4 flex items-center gap-3 bg-white/10 rounded-xl px-4 py-3">
-                {expert.fotoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={expert.fotoUrl} alt={expert.naam} className="w-10 h-10 rounded-full object-cover border border-white/30 shrink-0" />
-                ) : (
-                  <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center shrink-0 text-white font-bold">
-                    {initials || expert.naam[0]}
-                  </div>
-                )}
-                <div>
-                  <div className="text-sm font-semibold text-white">{expert.naam}</div>
-                  <div className="text-xs text-blue-200">{expert.titel}</div>
-                </div>
-              </div>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                    Naam <span className="text-red-500">*</span>
-                  </label>
-                  <input type="text" required value={form.naam} onChange={(e) => update("naam", e.target.value)}
-                    placeholder="Jouw naam"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                    School <span className="text-red-500">*</span>
-                  </label>
-                  <input type="text" required value={form.school} onChange={(e) => update("school", e.target.value)}
-                    placeholder="Naam van de school"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                  E-mailadres <span className="text-red-500">*</span>
-                </label>
-                <input type="email" required value={form.email} onChange={(e) => update("email", e.target.value)}
-                  placeholder="jouw@school.nl"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                  Telefoonnummer <span className="text-slate-400 font-normal">(optioneel)</span>
-                </label>
-                <input type="tel" value={form.telefoon} onChange={(e) => update("telefoon", e.target.value)}
-                  placeholder="06 12345678"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                  Aanvullende opmerkingen <span className="text-slate-400 font-normal">(optioneel)</span>
-                </label>
-                <textarea value={form.opmerkingen} onChange={(e) => update("opmerkingen", e.target.value)}
-                  placeholder="Iets wat je wil meegeven…" rows={3}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" />
-              </div>
-
-              {status === "error" && (
-                <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
-                  Er is iets misgegaan. Probeer opnieuw of neem direct contact op via {expert.email}.
-                </p>
-              )}
-
-              <div className="flex items-center gap-3 pt-1">
-                <button type="submit" disabled={status === "sending"}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold py-3 rounded-xl transition-colors text-sm">
-                  {status === "sending" ? "Versturen…" : "Verstuur aanvraag →"}
-                </button>
-                <button type="button" onClick={onClose}
-                  className="px-4 py-3 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors">
-                  Annuleren
-                </button>
-              </div>
-
-              <p className="text-xs text-center text-slate-400">
-                {expert.naam} ontvangt automatisch het gespreksverslag en de kenniskaarten.
-              </p>
-            </form>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Results panel (MyDosha-style) ────────────────────────────────────────────
-
-function ResultsPanel({
-  analysis,
-  kenniskaarten,
-  primaryKaartId,
-  alternativeKaartIds,
-  experts,
-  onContactExpert,
-  onNewConversation,
-}: {
-  analysis: NoorAnalysis | null;
-  kenniskaarten: Kenniskaart[];
-  primaryKaartId: string | null;
-  alternativeKaartIds: string[];
-  experts: Expert[];
-  onContactExpert: (e: Expert) => void;
-  onNewConversation: () => void;
-}) {
-  const primary = kenniskaarten.find((k) => k.id === primaryKaartId) ?? kenniskaarten[0];
-  // Top-3: als Noor alternatieve kaart-ids heeft meegegeven (= twijfel over welke
-  // primair is), behandelen we die als aanvullende top-hits en tonen we ze direct
-  // naast de primaire kaart in plaats van ingeklapt bij de overige kaarten.
-  const topAlternatives: Kenniskaart[] = [];
-  for (const id of alternativeKaartIds) {
-    const k = kenniskaarten.find((x) => x.id === id);
-    if (k && k.id !== primary?.id) topAlternatives.push(k);
-  }
-  const topIds = new Set<string>([primary?.id, ...topAlternatives.map((k) => k.id)].filter(Boolean) as string[]);
-  const overige = kenniskaarten.filter((k) => !topIds.has(k.id));
-
-  // Build share text for WhatsApp / email — compact summary for IB'er
-  const shareText = [
-    analysis?.profileLine,
-    primary?.titel ? `\nKenniskaart: ${primary.titel}` : "",
-    analysis?.insight ? `\n${analysis.insight}` : "",
-    analysis?.acties?.length
-      ? "\n\nMorgen in de klas:\n" + analysis.acties.map((a, i) => `${i + 1}. ${a}`).join("\n")
-      : "",
-    "\n\nVia LesCoach (lescoach.nl) — Noor, specialist speciaal onderwijs.",
-  ].join("");
-
-  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
-  const mailtoUrl = `mailto:?subject=${encodeURIComponent(
-    "LesCoach-rapport: " + (primary?.titel ?? "leerling")
-  )}&body=${encodeURIComponent(shareText)}`;
-
-  return (
-    <div className="print:bg-white">
-      {/* Hero — success state */}
-      <div className="text-center pt-8 pb-5 px-6 print:pt-0">
-        <div className="inline-flex w-14 h-14 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-500 items-center justify-center mb-4 shadow-sm print:shadow-none">
-          <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-        <h1 className="text-2xl font-bold text-slate-900 leading-tight mb-2">Analyse klaar</h1>
-        {analysis?.profileLine && (
-          <p className="text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
-            {analysis.profileLine}
-          </p>
-        )}
-
-        {/* Context chips — what Noor picked up from the intake */}
-        {analysis?.contextChips && analysis.contextChips.length > 0 && (
-          <div className="mt-4 flex flex-wrap justify-center gap-1.5 max-w-md mx-auto">
-            {analysis.contextChips.map((chip, i) => (
-              <span
-                key={i}
-                className="text-[11px] font-medium text-slate-600 bg-white border border-slate-200 px-2.5 py-1 rounded-full"
-              >
-                {chip}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="px-5 pb-8 space-y-5 max-w-2xl mx-auto">
-
-        {/* Primary insight card */}
-        {primary && (
-          <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-5 shadow-sm">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-blue-700 mb-2">
-              Beeld dat hierbij past
-            </div>
-            <div className="flex items-start gap-3 mb-3">
-              <svg className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 2l2.4 5.4L18 8.4l-4 3.9.9 5.7L10 15.4 5.1 18l.9-5.7-4-3.9 5.6-1L10 2z" />
-              </svg>
-              <div className="min-w-0">
-                <h2 className="text-lg font-bold text-slate-900 leading-tight">{primary.titel}</h2>
-                {primary.categorie && (
-                  <div className="text-xs text-slate-500 mt-0.5">{primary.categorie}</div>
-                )}
-              </div>
-            </div>
-            {analysis?.insight && (
-              <p className="text-sm text-slate-700 leading-relaxed">
-                {analysis.insight}
-              </p>
-            )}
-
-            {/* Primary-kaart trefwoorden as pills — quick scan of adjacent themes */}
-            {primary.trefwoorden && primary.trefwoorden.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {primary.trefwoorden.slice(0, 6).map((t) => (
-                  <span
-                    key={t}
-                    className="text-[11px] font-medium text-blue-700 bg-white/70 border border-blue-200 px-2 py-0.5 rounded-full"
-                  >
-                    {t}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            <div className="mt-3 text-xs text-slate-500 italic">
-              Dit wordt in een gesprek met een expert verder verkend — Noor stelt geen diagnose.
-            </div>
-          </div>
-        )}
-
-        {/* Signaal — meldcode warning (only if present) */}
-        {analysis?.signaal && (
-          <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4">
-            <div className="flex items-start gap-3">
-              <svg className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16a2 2 0 001.73 3z" />
-              </svg>
-              <div className="min-w-0">
-                <div className="text-xs font-semibold uppercase tracking-wider text-amber-800 mb-1">
-                  Signaal om met de aandachtsfunctionaris te bespreken
-                </div>
-                <p className="text-sm text-amber-900 leading-relaxed">{analysis.signaal}</p>
-                <p className="text-xs text-amber-800 mt-2">
-                  Bij acute zorg: Veilig Thuis — 0800-2000.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Morgen in de klas — three concrete actions */}
-        {analysis?.acties && analysis.acties.length > 0 && (
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3 px-1">
-              Morgen in de klas
-            </h3>
-            <div className="space-y-2">
-              {analysis.acties.slice(0, 3).map((actie, i) => (
-                <div
-                  key={i}
-                  className="flex items-start gap-3 bg-white border border-slate-200 rounded-xl p-3.5"
-                >
-                  <div className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                    {i + 1}
-                  </div>
-                  <p className="text-sm text-slate-700 leading-relaxed">{actie}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Overleg — when present */}
-        {analysis?.overleg && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
-              Overleg intern
-            </div>
-            <p className="text-sm text-slate-700 leading-relaxed">{analysis.overleg}</p>
-          </div>
-        )}
-
-        {/* Expert CTA — prominent */}
-        {experts.length > 0 && (
-          <div className="pt-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3 px-1 print:hidden">
-              {experts.length === 1 ? "Passende expert" : "Passende experts"}
-            </h3>
-            <div className="space-y-3 print:hidden">
-              {experts.map((expert) => (
-                <ExpertCard
-                  key={expert.id}
-                  expert={expert}
-                  onContact={onContactExpert}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* All kenniskaarten — primary first, top alternatives styled as co-primary, rest collapsed */}
-        {kenniskaarten.length > 0 && (
-          <div className="pt-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3 px-1">
-              {topAlternatives.length > 0
-                ? `Top ${1 + topAlternatives.length} kenniskaarten (van ${kenniskaarten.length})`
-                : `Alle kenniskaarten (${kenniskaarten.length})`}
-            </h3>
-            {topAlternatives.length > 0 && (
-              <p className="text-xs text-slate-500 mb-3 px-1">
-                Noor twijfelt tussen deze kaarten — ze passen allemaal bij het beeld. Lees ze naast elkaar om te kiezen wat voor jouw leerling het sterkst resoneert.
-              </p>
-            )}
-            <div className="space-y-3">
-              {primary && (
-                <KenniskaartCard kaart={primary} isPrimary defaultOpen={false} />
-              )}
-              {topAlternatives.map((k) => (
-                <KenniskaartCard key={k.id} kaart={k} isPrimary defaultOpen={false} />
-              ))}
-              {overige.map((k) => (
-                <KenniskaartCard key={k.id} kaart={k} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Footer actions */}
-        <div className="pt-3 flex flex-wrap gap-2 print:hidden">
-          {analysis && (
-            <>
-              <a
-                href={whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-2 rounded-xl transition-colors"
-              >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                </svg>
-                Stuur naar IB&apos;er
-              </a>
-              <a
-                href={mailtoUrl}
-                className="flex items-center gap-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 px-3 py-2 rounded-xl transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                Mailen
-              </a>
-            </>
-          )}
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 px-3 py-2 rounded-xl transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-            </svg>
-            Print of PDF
-          </button>
-          <button
-            onClick={onNewConversation}
-            className="flex items-center gap-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 px-3 py-2 rounded-xl transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Nieuw gesprek
-          </button>
-        </div>
-
-        {/* Disclaimer — always visible, niet alleen bij printen */}
-        <div className="mt-6 pt-4 border-t border-slate-200 text-[11px] leading-relaxed text-slate-500">
-          <div className="flex gap-2 items-start">
-            <svg className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <div>
-              <strong className="text-slate-600">Noor ondersteunt jou als leerkracht; ze stelt geen diagnose en vervangt geen zorgprofessional.</strong>
-              {" "}Bij zorg over een leerling: bespreek met IB&rsquo;er, zorgteam of jeugdarts. Bij vermoeden van onveiligheid: Veilig Thuis 0800-2000.
-            </div>
-          </div>
-        </div>
-
-        {/* Print-only extra footer */}
-        <div className="hidden print:block pt-4 text-[10px] text-slate-500 mt-4">
-          Rapport gegenereerd door LesCoach / Noor. Geen medische diagnose.
-          Voor vragen over een leerling: bespreek met IB'er, zorgteam, of neem contact op met een aangesloten expert via lescoach.nl.
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
@@ -866,8 +327,7 @@ export default function ChatPage() {
   const [done, setDone] = useState(false);
   const [selectedExpert, setSelectedExpert] = useState<Expert | null>(null);
   const [piiWarning, setPiiWarning] = useState(false);
-  const [mobileView, setMobileView] = useState<"chat" | "results">("chat");
-  const [authedUser, setAuthedUser] = useState<{ naam: string; rol: "admin" | "leraar"; schoolnaam?: string } | null>(null);
+  const [authedUser, setAuthedUser] = useState<{ naam: string; email: string; rol: "admin" | "leraar"; schoolnaam?: string } | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<Array<{ id: string; datum: string; primaryKaart: string; samenvatting: string; zoekterm: string; categorie: string }>>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -883,6 +343,7 @@ export default function ChatPage() {
         if (cancelled || !data.authenticated) return;
         setAuthedUser({
           naam: data.leraar?.naam || "",
+          email: data.leraar?.email || "",
           rol: data.leraar?.rol || "leraar",
           schoolnaam: data.school?.schoolnaam,
         });
@@ -1005,26 +466,48 @@ export default function ChatPage() {
         setPiiWarning(true);
       }
 
+      const incomingExperts: Expert[] = data.experts?.length > 0 ? data.experts : [];
+      const incomingAnalysis: NoorAnalysis | null = data.analysis ?? null;
+      const incomingPrimaryKaartId: string | null = data.primaryKaartId ?? null;
+      const incomingAlternativeKaartIds: string[] = Array.isArray(data.alternativeKaartIds)
+        ? data.alternativeKaartIds
+        : [];
+
+      if (incomingExperts.length > 0) setExperts(incomingExperts);
+      if (incomingAnalysis) setAnalysis(incomingAnalysis);
+      if (incomingPrimaryKaartId) setPrimaryKaartId(incomingPrimaryKaartId);
+      if (Array.isArray(data.alternativeKaartIds)) setAlternativeKaartIds(incomingAlternativeKaartIds);
+
       if (data.kenniskaarten?.length > 0) {
         setKenniskaarten(data.kenniskaarten);
         setDone(true);
-        if (typeof window !== "undefined" && window.innerWidth < 1024) {
-          // Mobiel: schakel direct naar het volledige resultaten-scherm.
-          // De leerkracht kan via "← Terug naar gesprek" terug.
-          setMobileView("results");
+
+        // Persist to sessionStorage zodat /resultaten de uitkomst kan lezen,
+        // ook na een browser-refresh of vanuit een nieuw tabblad.
+        try {
+          const finalMessages: Message[] = [
+            ...newMessages,
+            { role: "assistant", content: data.message ?? "" },
+          ];
+          const payload = {
+            analysis: incomingAnalysis,
+            kenniskaarten: data.kenniskaarten,
+            experts: incomingExperts,
+            primaryKaartId: incomingPrimaryKaartId,
+            alternativeKaartIds: incomingAlternativeKaartIds,
+            messages: finalMessages,
+            savedAt: Date.now(),
+          };
+          sessionStorage.setItem(RESULTS_STORAGE_KEY, JSON.stringify(payload));
+        } catch {
+          // sessionStorage kan vol of geblokkeerd zijn — degradatie naar in-memory only.
         }
-      }
-      if (data.experts?.length > 0) {
-        setExperts(data.experts);
-      }
-      if (data.analysis) {
-        setAnalysis(data.analysis as NoorAnalysis);
-      }
-      if (data.primaryKaartId) {
-        setPrimaryKaartId(data.primaryKaartId as string);
-      }
-      if (Array.isArray(data.alternativeKaartIds)) {
-        setAlternativeKaartIds(data.alternativeKaartIds as string[]);
+
+        // Mobiel: navigeer naar de eigen /resultaten pagina (los leesbaar op telefoon).
+        // Desktop houdt de side-panel layout die hieronder al gerenderd wordt.
+        if (typeof window !== "undefined" && window.innerWidth < 1024) {
+          router.push("/resultaten");
+        }
       }
     } catch {
       setMessages([...newMessages, { role: "assistant", content: "Sorry, er is iets misgegaan. Probeer het opnieuw." }]);
@@ -1054,7 +537,7 @@ export default function ChatPage() {
     setPrimaryKaartId(null);
     setAlternativeKaartIds([]);
     setPiiWarning(false);
-    setMobileView("chat");
+    try { sessionStorage.removeItem(RESULTS_STORAGE_KEY); } catch {}
     // trigger fresh start — show hardcoded opener instantly
     setTimeout(() => {
       setStarted(true);
@@ -1066,7 +549,7 @@ export default function ChatPage() {
   const displayExperts = experts.length > 0 ? experts : [];
 
   return (
-    <div className="flex flex-col h-screen bg-[#fefcf7] print:bg-white print:h-auto">
+    <div className="flex flex-col h-dvh bg-[#fefcf7] print:bg-white print:h-auto">
       {/* Expert modal */}
       {selectedExpert && (
         <ExpertModal
@@ -1074,6 +557,11 @@ export default function ChatPage() {
           messages={messages}
           kenniskaarten={kenniskaarten}
           onClose={() => setSelectedExpert(null)}
+          defaultValues={{
+            naam: authedUser?.naam,
+            school: authedUser?.schoolnaam,
+            email: authedUser?.email,
+          }}
         />
       )}
 
@@ -1101,16 +589,17 @@ export default function ChatPage() {
             <div className="relative">
               <button
                 onClick={() => historyOpen ? setHistoryOpen(false) : openHistory()}
-                className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
                 title="Eerdere gesprekken"
+                aria-label="Eerdere gesprekken"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Eerdere gesprekken
+                <span className="hidden sm:inline">Eerdere gesprekken</span>
               </button>
               {historyOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-lg z-40 max-h-[70vh] overflow-y-auto">
+                <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-lg z-40 max-h-[70dvh] overflow-y-auto">
                   <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
                     <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Jouw laatste gesprekken</span>
                     <button onClick={() => setHistoryOpen(false)} className="text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
@@ -1147,12 +636,14 @@ export default function ChatPage() {
           )}
           <button
             onClick={resetChat}
-            className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+            className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+            title="Nieuw gesprek"
+            aria-label="Nieuw gesprek"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Nieuw gesprek
+            <span className="hidden sm:inline">Nieuw gesprek</span>
           </button>
           {authedUser && (
             <div className="hidden md:flex items-center gap-2 pl-3 ml-1 border-l border-slate-200">
@@ -1187,9 +678,7 @@ export default function ChatPage() {
                 <div key={i} className="space-y-2">
                   <div className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
                     {msg.role === "assistant" && (
-                      <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-                        <span className="text-white text-sm font-semibold">N</span>
-                      </div>
+                      <NoorAvatar size={36} className="shrink-0 mt-0.5 shadow-sm" alt="" />
                     )}
                     {msg.role === "user" && (
                       <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center shrink-0 mt-0.5">
@@ -1236,27 +725,34 @@ export default function ChatPage() {
           </div>
 
           {/* Subtle intake progress — visible until zoek_kenniskaarten returns results */}
-          {!done && messages.filter((m) => m.role === "user").length >= 1 && messages.filter((m) => m.role === "user").length < 4 && (
-            <div className="shrink-0 text-center px-4 pb-1 pt-0.5">
-              <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-400">
-                <span className="flex gap-0.5">
-                  {[0,1,2,3].map((i) => (
-                    <span
-                      key={i}
-                      className={`w-1.5 h-1.5 rounded-full ${i < messages.filter((m) => m.role === "user").length ? "bg-blue-500" : "bg-slate-300"}`}
-                    />
-                  ))}
+          {(() => {
+            const userTurns = messages.filter((m) => m.role === "user").length;
+            if (done || userTurns < 1 || userTurns >= 9) return null;
+            // Show 5 dots — landing-zone for an ideal intake (4-7 vragen).
+            // Dots fill 1:1 with the user-turn count, clamped at 5.
+            const filled = Math.min(userTurns, 5);
+            return (
+              <div className="shrink-0 text-center px-4 pb-1 pt-0.5">
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-400">
+                  <span className="flex gap-0.5">
+                    {[0,1,2,3,4].map((i) => (
+                      <span
+                        key={i}
+                        className={`w-1.5 h-1.5 rounded-full ${i < filled ? "bg-blue-500" : "bg-slate-300"}`}
+                      />
+                    ))}
+                  </span>
+                  <span>Intake bezig</span>
                 </span>
-                <span>Intake — max 4 vragen</span>
-              </span>
-            </div>
-          )}
+              </div>
+            );
+          })()}
 
-          {/* Mobile: done banner — opens the full-page results view */}
+          {/* Mobile: done banner — opent de eigen /resultaten pagina */}
           {done && kenniskaarten.length > 0 && (
             <div className="lg:hidden shrink-0 mx-4 mb-3">
               <button
-                onClick={() => setMobileView("results")}
+                onClick={() => router.push("/resultaten")}
                 className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-2xl p-4 flex items-center justify-between shadow-sm active:scale-[0.99] transition-transform"
               >
                 <div className="flex items-center gap-3">
@@ -1303,6 +799,7 @@ export default function ChatPage() {
               <MicButton
                 disabled={loading}
                 onTranscript={(t) => setInput(t)}
+                getCurrentInput={() => input}
               />
               <textarea
                 ref={inputRef}
@@ -1331,10 +828,10 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Results panel (desktop) */}
+        {/* Results panel (desktop) — op mobiel navigeren we naar /resultaten i.p.v. dit te tonen */}
         {done && kenniskaarten.length > 0 && (
           <div className="hidden lg:flex flex-col w-[55%] border-l border-slate-200 bg-gradient-to-b from-slate-50 to-white overflow-y-auto print:w-full print:border-0 print:block">
-            <ResultsPanel
+            <ReportView
               analysis={analysis}
               kenniskaarten={kenniskaarten}
               primaryKaartId={primaryKaartId}
@@ -1342,46 +839,11 @@ export default function ChatPage() {
               experts={displayExperts}
               onContactExpert={(e) => setSelectedExpert(e)}
               onNewConversation={resetChat}
+              variant="panel"
             />
           </div>
         )}
       </div>
-
-      {/* Mobile: full-page results view — replaces the chat on small screens */}
-      {done && kenniskaarten.length > 0 && mobileView === "results" && (
-        <div className="lg:hidden fixed inset-0 z-40 flex flex-col bg-gradient-to-b from-amber-50/30 to-white print:hidden">
-          {/* Sticky top bar with back button */}
-          <div className="shrink-0 bg-white/95 backdrop-blur border-b border-slate-200 px-3 py-2.5 flex items-center justify-between gap-2 sticky top-0">
-            <button
-              onClick={() => setMobileView("chat")}
-              className="flex items-center gap-1.5 text-sm font-medium text-slate-700 hover:text-blue-700 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-              aria-label="Terug naar het gesprek"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-              <span>Terug naar gesprek</span>
-            </button>
-            <div className="text-[11px] text-slate-500 text-right leading-tight">
-              {kenniskaarten.length} kaart{kenniskaarten.length === 1 ? "" : "en"}
-              <br />
-              {displayExperts.length} expert{displayExperts.length === 1 ? "" : "s"}
-            </div>
-          </div>
-          {/* Scrollable results body */}
-          <div className="flex-1 overflow-y-auto">
-            <ResultsPanel
-              analysis={analysis}
-              kenniskaarten={kenniskaarten}
-              primaryKaartId={primaryKaartId}
-              alternativeKaartIds={alternativeKaartIds}
-              experts={displayExperts}
-              onContactExpert={(e) => setSelectedExpert(e)}
-              onNewConversation={resetChat}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

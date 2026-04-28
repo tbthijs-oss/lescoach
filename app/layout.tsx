@@ -1,7 +1,19 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 const siteUrl = process.env.APP_URL || "https://lescoach.nl";
+
+/**
+ * Mobile-friendly viewport. `interactiveWidget: "resizes-content"` zorgt dat
+ * iOS/Android het visible-viewport kleiner maakt zodra het soft-keyboard
+ * opent — anders verdwijnt het chat-input-veld onder het toetsenbord.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#1e40af",
+  interactiveWidget: "resizes-content",
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

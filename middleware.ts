@@ -24,9 +24,10 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // ── Leraar-auth routes (/chat, /school, /api/chat, /api/contact-expert, /api/school)
+  // ── Leraar-auth routes (/chat, /resultaten, /school, /api/chat, /api/contact-expert, /api/school)
   const requiresLeraarAuth =
     pathname.startsWith("/chat") ||
+    pathname.startsWith("/resultaten") ||
     pathname.startsWith("/school") ||
     pathname.startsWith("/api/chat") ||
     pathname.startsWith("/api/contact-expert") ||
@@ -72,6 +73,8 @@ export const config = {
     "/beheer/:path*",
     "/api/beheer/:path*",
     "/chat/:path*",
+    "/resultaten",
+    "/resultaten/:path*",
     "/school/:path*",
     "/api/chat/:path*",
     "/api/contact-expert/:path*",
