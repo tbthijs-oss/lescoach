@@ -101,7 +101,7 @@ export async function logMeldcodeSignaal(input: {
 
 export async function listMeldcodeSignalen(schoolId?: string): Promise<MeldcodeSignaal[]> {
   const url = schoolId
-    ? `${tableUrl("MeldcodeSignalen")}?filterByFormula=${encodeURIComponent(`FIND('${schoolId}', ARRAYJOIN({School}))`)}&pageSize=100&sort%5B0%5D%5Bfield%5D=Datum&sort%5B0%5D%5Bdirection%5D=desc`
+    ? `${tableUrl("MeldcodeSignalen")}?filterByFormula=${encodeURIComponent(`FIND('${schoolId.replace(/'/g, "''")}', ARRAYJOIN({School}))`)}&pageSize=100&sort%5B0%5D%5Bfield%5D=Datum&sort%5B0%5D%5Bdirection%5D=desc`
     : `${tableUrl("MeldcodeSignalen")}?pageSize=100&sort%5B0%5D%5Bfield%5D=Datum&sort%5B0%5D%5Bdirection%5D=desc`;
   try {
     const data = await at<AirtableListResponse<Record<string, unknown>>>(url);
@@ -110,4 +110,18 @@ export async function listMeldcodeSignalen(schoolId?: string): Promise<MeldcodeS
     console.warn("[meldcode] list mislukt:", err);
     return [];
   }
+}
+
+export async function updateMeldcodeStatus(
+  id: string,
+  patch: { status: MeldcodeSignaal["status"]; beoordeeldDoor?: string; beoordelingsNotitie?: string }
+): Promise<MeldcodeSignaal> {
+  const fields: Record<string, unknown> = { Status: patch.status };
+  if (patch.beoordeeldDoor) fields["BeoordeeldDoor"] = patch.beoordeeldDoor;
+  if (patch.beoordelingsNotitie) fields["BeoordelingsNotitie"] = patch.beoordelingsNotitie;
+  const data = await at<AirtableRecord<Record<string, unknown>>>(tableUrl("MeldcodeSignalen", id), {
+    method: "PATCH",
+    body: JSON.stringify({ fields }),
+  });
+  return parse(data);
 }

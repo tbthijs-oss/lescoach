@@ -139,13 +139,13 @@ export async function logGesprek(input: {
 }
 
 /**
- * Haal de laatste N gesprekken van Ã©Ã©n leraar op (nieuwste eerst).
+ * Haal de laatste N gesprekken van één leraar op (nieuwste eerst).
  */
 export async function listGesprekkenForLeraar(
   leraarId: string,
   limit = 10
 ): Promise<Gesprek[]> {
-  const formula = `FIND('${leraarId}', ARRAYJOIN({Leraar}))`;
+  const formula = `FIND('${leraarId.replace(/'/g, "''")}', ARRAYJOIN({Leraar}))`;
   const url = `${tableUrl("Gesprekken")}?filterByFormula=${encodeURIComponent(formula)}&pageSize=${Math.min(limit, 100)}&sort%5B0%5D%5Bfield%5D=Datum&sort%5B0%5D%5Bdirection%5D=desc`;
   const data = await at<AirtableListResponse<Record<string, unknown>>>(url);
   return (data.records || []).map(parseGesprek).slice(0, limit);
@@ -164,8 +164,9 @@ export async function listGesprekkenForSchool(
   schoolId: string,
   sinceIso?: string
 ): Promise<Gesprek[]> {
-  const filters = [`FIND('${schoolId}', ARRAYJOIN({School}))`];
-  if (sinceIso) filters.push(`IS_AFTER({Datum}, '${sinceIso}')`);
+  const safeSchoolId = schoolId.replace(/'/g, "''");
+  const filters = [`FIND('${safeSchoolId}', ARRAYJOIN({School}))`];
+  if (sinceIso) filters.push(`IS_AFTER({Datum}, '${sinceIso.replace(/'/g, "''")}')`);
   const formula = filters.length > 1 ? `AND(${filters.join(",")})` : filters[0];
   const url = `${tableUrl("Gesprekken")}?filterByFormula=${encodeURIComponent(formula)}&pageSize=100`;
   const records: Gesprek[] = [];

@@ -214,10 +214,19 @@ export async function POST(request: NextRequest) {
       const toolUseBlock = response.content.find((b) => b.type === "tool_use");
 
       if (toolUseBlock && toolUseBlock.type === "tool_use") {
-        const input = toolUseBlock.input as {
-          zoekterm: string;
-          trefwoorden?: string[];
+        const rawInput = toolUseBlock.input as Record<string, unknown>;
+        const input = {
+          zoekterm: typeof rawInput?.zoekterm === "string" ? rawInput.zoekterm.trim() : "",
+          trefwoorden: Array.isArray(rawInput?.trefwoorden)
+            ? (rawInput.trefwoorden as unknown[]).filter((t) => typeof t === "string") as string[]
+            : [],
         };
+
+        // Fallback: als model geen zoekterm stuurde, gebruik laatste user-bericht als proxy
+        if (!input.zoekterm) {
+          const lastUser = [...safeMessages].reverse().find((m) => m.role === "user");
+          input.zoekterm = typeof lastUser?.content === "string" ? lastUser.content.slice(0, 100) : "gedragsproblemen";
+        }
 
         const usedTrefwoorden = input.trefwoorden || [];
 

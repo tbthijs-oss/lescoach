@@ -156,7 +156,7 @@ function parseLeraar(r: AirtableRecord<any>): Leraar {
 
 export async function findLeraarByEmail(email: string): Promise<Leraar | null> {
   const normalized = email.trim().toLowerCase();
-  const formula = `LOWER({Email})='${normalized.replace(/'/g, "\\'")}'`;
+  const formula = `LOWER({Email})='${normalized.replace(/'/g, "''")}'`;
   const url = `${t("Leraren")}?filterByFormula=${encodeURIComponent(formula)}&maxRecords=1`;
   const data = await airtable<AirtableListResponse<Record<string, unknown>>>(url);
   const rec = (data.records || [])[0];
@@ -261,7 +261,7 @@ export async function createMagicLink(
 }
 
 export async function findMagicLink(token: string): Promise<MagicLink | null> {
-  const formula = `{Token}='${token.replace(/'/g, "\\'")}'`;
+  const formula = `{Token}='${token.replace(/'/g, "''")}'`;
   const url = `${t("MagicLinks")}?filterByFormula=${encodeURIComponent(formula)}&maxRecords=1`;
   const data = await airtable<AirtableListResponse<Record<string, unknown>>>(url);
   const rec = (data.records || [])[0];

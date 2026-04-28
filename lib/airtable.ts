@@ -14,7 +14,7 @@ export interface Kenniskaart {
 }
 
 // Kenniskaarten-tabel — bij voorkeur via env var AIRTABLE_TABLE_ID (een tbl...-id),
-// met fallback op de tabelnaam "Kenniskaarten" zodat een geÃ¯mporteerde/gekloonde
+// met fallback op de tabelnaam "Kenniskaarten" zodat een geïmporteerde/gekloonde
 // base altijd blijft werken ook al wisselt het ID.
 const KENNISKAARTEN_TABLE = process.env.AIRTABLE_TABLE_ID || "Kenniskaarten";
 const KENNISKAARTEN_URL = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent(KENNISKAARTEN_TABLE)}`;
@@ -65,7 +65,7 @@ export async function getAllKenniskaarten(): Promise<Kenniskaart[]> {
     return kennisCache;
   }
 
-  // 1e poging: gebruik wat in de env var staat (ID Ã³f naam).
+  // 1e poging: gebruik wat in de env var staat (ID óf naam).
   const primary = await fetchKenniskaartenFromUrl(KENNISKAARTEN_URL);
   if (primary.ok && primary.records.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -191,7 +191,11 @@ const EXPERTS_URL = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseExpertRecord(record: any): Expert {
   const f = record.fields;
-  const specialisatiesRaw: string = f["Specialisaties"] || "";
+  const specialisatiesRaw: string = Array.isArray(f["Specialisaties"])
+    ? f["Specialisaties"].join(",")
+    : typeof f["Specialisaties"] === "string"
+    ? f["Specialisaties"]
+    : "";
   return {
     id: record.id,
     naam: f["Naam"] || "",

@@ -96,7 +96,7 @@ export async function getExpert(id: string): Promise<ExpertProfile | null> {
 
 export async function findExpertByEmail(email: string): Promise<ExpertProfile | null> {
   const normalized = email.trim().toLowerCase();
-  const formula = `LOWER({Email})='${normalized.replace(/'/g, "\\'")}'`;
+  const formula = `LOWER({Email})='${normalized.replace(/'/g, "''")}'`;
   const url = `${expertsUrl()}?filterByFormula=${encodeURIComponent(formula)}&maxRecords=1`;
   const data = await at<AirtableListResponse<Record<string, unknown>>>(url);
   const rec = (data.records || [])[0];
@@ -172,7 +172,7 @@ export async function createExpertMagicLink(
 }
 
 export async function findExpertMagicLink(token: string): Promise<ExpertMagicLink | null> {
-  const formula = `{Token}='${token.replace(/'/g, "\\'")}'`;
+  const formula = `{Token}='${token.replace(/'/g, "''")}'`;
   const url = `${linksUrl()}?filterByFormula=${encodeURIComponent(formula)}&maxRecords=1`;
   const data = await at<AirtableListResponse<Record<string, unknown>>>(url);
   const rec = (data.records || [])[0];
