@@ -14,10 +14,29 @@ export interface Kenniskaart {
 }
 
 // Kenniskaarten-tabel — bij voorkeur via env var AIRTABLE_TABLE_ID (een tbl...-id),
-// met fallback op de tabelnaam "Kenniskaarten" zodat een geïmporteerde/gekloonde
+// met fallback op de tabelnaam "Kenniskaarten" zodat een geÃ¯mporteerde/gekloonde
 // base altijd blijft werken ook al wisselt het ID.
 const KENNISKAARTEN_TABLE = process.env.AIRTABLE_TABLE_ID || "Kenniskaarten";
 const KENNISKAARTEN_URL = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent(KENNISKAARTEN_TABLE)}`;
+
+/**
+ * Saniteer een Airtable URL-veld: codeer spaties en ongeldige tekens, en
+ * geef "" terug als de waarde geen geldige http(s)-URL is. Voorkomt broken
+ * links wanneer Airtable-data een paginatitel of gedeeltelijke URL bevat.
+ */
+function sanitizeUrl(raw: unknown): string {
+  if (!raw || typeof raw !== "string") return "";
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) return "";
+  try {
+    // encodeURI encodeert spaties en niet-ASCII maar laat ://?=&#% intact
+    const encoded = encodeURI(trimmed);
+    new URL(encoded); // gooit als de structuur nog steeds ongeldig is
+    return encoded;
+  } catch {
+    return "";
+  }
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseKenniskaartRecord(record: any): Kenniskaart {
@@ -34,8 +53,8 @@ function parseKenniskaartRecord(record: any): Kenniskaart {
     trefwoorden: (f["Trefwoorden"] || []).map((t: any) =>
       typeof t === "string" ? t : t.name
     ),
-    pdfUrl: f["PDF URL"] || "",
-    bronUrl: f["Bronpagina URL"] || "",
+    pdfUrl: sanitizeUrl(f["PDF URL"]),
+    bronUrl: sanitizeUrl(f["Bronpagina URL"]),
   };
 }
 
@@ -65,7 +84,7 @@ export async function getAllKenniskaarten(): Promise<Kenniskaart[]> {
     return kennisCache;
   }
 
-  // 1e poging: gebruik wat in de env var staat (ID óf naam).
+  // 1e poging: gebruik wat in de env var staat (ID Ã³f naam).
   const primary = await fetchKenniskaartenFromUrl(KENNISKAARTEN_URL);
   if (primary.ok && primary.records.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
