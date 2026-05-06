@@ -430,16 +430,15 @@ export default function ChatPage() {
     const textToSend = (text ?? input).trim();
     if (!textToSend || loading) return;
 
-    setSuggestions([]); // clear chips when sending
-    setPiiWarning(false); // clear any prior warning when a new message is sent
+    setSuggestions([]);
+    setPiiWarning(false);
     const newMessages: Message[] = [...messages, { role: "user", content: textToSend }];
-    setMessages(newMessages);
+    // Add a placeholder assistant message that will be filled while streaming
+    const streamingPlaceholder: Message = { role: "assistant", content: "" };
+    setMessages([...newMessages, streamingPlaceholder]);
     setInput("");
     setLoading(true);
 
-    // Claude expects the first message to be a "user" turn. Our hardcoded
-    // opener puts an assistant message first — strip it and replace with a
-    // neutral seed so the API sees a valid conversation shape.
     const apiMessages: Message[] =
       newMessages[0]?.role === "assistant"
         ? [
@@ -450,63 +449,96 @@ export default function ChatPage() {
         : newMessages;
 
     try {
-      const res = await fetch("/api/chat", {
+      const res = await fetch("/api/chat/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: apiMessages }),
       });
-      const data = await res.json();
 
-      if (data.message) {
-        setMessages([...newMessages, { role: "assistant", content: data.message }]);
-      }
-      setSuggestions(data.suggestions || []);
+      if (!res.ok || !res.body) throw new Error("stream-start-failed");
 
-      if (data.piiFiltered) {
-        setPiiWarning(true);
-      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let streamedText = "";
 
-      const incomingExperts: Expert[] = data.experts?.length > 0 ? data.experts : [];
-      const incomingAnalysis: NoorAnalysis | null = data.analysis ?? null;
-      const incomingPrimaryKaartId: string | null = data.primaryKaartId ?? null;
-      const incomingAlternativeKaartIds: string[] = Array.isArray(data.alternativeKaartIds)
-        ? data.alternativeKaartIds
-        : [];
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
 
-      if (incomingExperts.length > 0) setExperts(incomingExperts);
-      if (incomingAnalysis) setAnalysis(incomingAnalysis);
-      if (incomingPrimaryKaartId) setPrimaryKaartId(incomingPrimaryKaartId);
-      if (Array.isArray(data.alternativeKaartIds)) setAlternativeKaartIds(incomingAlternativeKaartIds);
+        // Parse SSE lines
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() ?? "";
 
-      if (data.kenniskaarten?.length > 0) {
-        setKenniskaarten(data.kenniskaarten);
-        setDone(true);
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
 
-        // Persist to sessionStorage zodat /resultaten de uitkomst kan lezen,
-        // ook na een browser-refresh of vanuit een nieuw tabblad.
-        try {
-          const finalMessages: Message[] = [
-            ...newMessages,
-            { role: "assistant", content: data.message ?? "" },
-          ];
-          const payload = {
-            analysis: incomingAnalysis,
-            kenniskaarten: data.kenniskaarten,
-            experts: incomingExperts,
-            primaryKaartId: incomingPrimaryKaartId,
-            alternativeKaartIds: incomingAlternativeKaartIds,
-            messages: finalMessages,
-            savedAt: Date.now(),
-          };
-          sessionStorage.setItem(RESULTS_STORAGE_KEY, JSON.stringify(payload));
-        } catch {
-          // sessionStorage kan vol of geblokkeerd zijn — degradatie naar in-memory only.
-        }
+            if (event.type === "chunk") {
+              streamedText += event.text;
+              // Update the streaming placeholder in real-time
+              setMessages((prev) => {
+                const updated = [...prev];
+                updated[updated.length - 1] = { role: "assistant", content: streamedText };
+                return updated;
+              });
+            } else if (event.type === "searching") {
+              // Show a "Noor zoekt..." indicator in the message
+              setMessages((prev) => {
+                const updated = [...prev];
+                updated[updated.length - 1] = { role: "assistant", content: "Ik ga nu de kenniskaarten erbij pakken — één momentje." };
+                return updated;
+              });
+              streamedText = "";
+            } else if (event.type === "pii") {
+              setPiiWarning(true);
+            } else if (event.type === "suggestions") {
+              setSuggestions(event.data || []);
+            } else if (event.type === "intake_done") {
+              // Final clean message for intake turn
+              const finalMsg: string = event.data?.message || streamedText;
+              setMessages([...newMessages, { role: "assistant", content: finalMsg }]);
+              setSuggestions(event.data?.suggestions || []);
+              streamedText = "";
+            } else if (event.type === "result") {
+              const data = event.data;
+              const incomingExperts: Expert[] = data.experts?.length > 0 ? data.experts : [];
+              const incomingAnalysis: NoorAnalysis | null = data.analysis ?? null;
+              const incomingPrimaryKaartId: string | null = data.primaryKaartId ?? null;
+              const incomingAlternativeKaartIds: string[] = Array.isArray(data.alternativeKaartIds) ? data.alternativeKaartIds : [];
 
-        // Mobiel: navigeer naar de eigen /resultaten pagina (los leesbaar op telefoon).
-        // Desktop houdt de side-panel layout die hieronder al gerenderd wordt.
-        if (typeof window !== "undefined" && window.innerWidth < 1024) {
-          router.push("/resultaten");
+              const finalMessages: Message[] = [
+                ...newMessages,
+                { role: "assistant", content: data.message ?? "" },
+              ];
+              setMessages(finalMessages);
+              setSuggestions([]);
+              if (incomingExperts.length > 0) setExperts(incomingExperts);
+              if (incomingAnalysis) setAnalysis(incomingAnalysis);
+              if (incomingPrimaryKaartId) setPrimaryKaartId(incomingPrimaryKaartId);
+              setAlternativeKaartIds(incomingAlternativeKaartIds);
+
+              if (data.kenniskaarten?.length > 0) {
+                setKenniskaarten(data.kenniskaarten);
+                setDone(true);
+                try {
+                  sessionStorage.setItem(RESULTS_STORAGE_KEY, JSON.stringify({
+                    analysis: incomingAnalysis, kenniskaarten: data.kenniskaarten,
+                    experts: incomingExperts, primaryKaartId: incomingPrimaryKaartId,
+                    alternativeKaartIds: incomingAlternativeKaartIds,
+                    messages: finalMessages, savedAt: Date.now(),
+                  }));
+                } catch { /* ignore */ }
+                if (typeof window !== "undefined" && window.innerWidth < 1024) {
+                  router.push("/resultaten");
+                }
+              }
+            } else if (event.type === "error") {
+              setMessages([...newMessages, { role: "assistant", content: event.message || "Sorry, er is iets misgegaan. Probeer het opnieuw." }]);
+            }
+          } catch { /* ignore parse errors */ }
         }
       }
     } catch {
@@ -571,7 +603,12 @@ export default function ChatPage() {
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
             <span className="text-white text-sm font-bold">L</span>
           </div>
-          <span className="text-slate-800 font-semibold">LesCoach</span>
+          <div className="flex flex-col leading-none">
+            <span className="text-slate-800 font-semibold text-sm">LesCoach</span>
+            {authedUser?.schoolnaam && (
+              <span className="text-[11px] text-slate-400 leading-tight">{authedUser.schoolnaam}</span>
+            )}
+          </div>
         </Link>
         <div className="flex items-center gap-2">
           {done && displayExperts.length > 0 && (
