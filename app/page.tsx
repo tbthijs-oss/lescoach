@@ -188,9 +188,6 @@ export default function Home() {
             <span className="text-slate-800 font-semibold text-sm">LesCoach</span>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/experts" className="text-sm font-medium text-slate-600 hover:text-[#8B1A4A] transition-colors">
-              Het team
-            </Link>
             <Link
               href="/chat"
               className="text-sm font-semibold text-white bg-[#8B1A4A] hover:bg-[#7a1740] px-4 py-2 rounded-lg transition-colors"
@@ -501,8 +498,7 @@ export default function Home() {
         <a href="https://kennisgroepspeciaal.nl" className="underline hover:text-slate-600" target="_blank" rel="noopener noreferrer">
           Kennisgroep Speciaal
         </a>
-        {" "}·{" "}
-        <Link href="/experts" className="hover:text-slate-600">Experts</Link>
+
         {" "}·{" "}
         <Link href="/privacy" className="hover:text-slate-600">Privacy</Link>
         {" "}·{" "}
