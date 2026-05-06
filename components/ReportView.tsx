@@ -819,4 +819,21 @@ export function StickyExpertCTA({
         >
           {expert.fotoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={expert.f
+            <img src={expert.fotoUrl} alt="" className="w-9 h-9 rounded-full object-cover border-2 border-white/30 shrink-0" />
+          ) : (
+            <span className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white text-sm font-bold shrink-0">
+              {initials || expert.naam[0]}
+            </span>
+          )}
+          <span className="flex-1 text-left text-sm leading-tight">
+            <span className="block text-[11px] text-blue-200 font-medium">Vraag advies aan</span>
+            <span className="block">{expert.naam}</span>
+          </span>
+          <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}

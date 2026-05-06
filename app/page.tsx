@@ -490,4 +490,17 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── Footer ─────────────────────────────────────────────────
+      {/* ── Footer ─────────────────────────────────────────────────────────── */}
+      <footer className="text-center py-6 text-xs text-slate-400 border-t border-slate-100 bg-white">
+        LesCoach · Kenniskaarten via{" "}
+        <a href="https://kennisgroepspeciaal.nl" className="underline hover:text-slate-600" target="_blank" rel="noopener noreferrer">
+          Kennisgroep Speciaal
+        </a>
+        {" "}·{" "}
+        <Link href="/privacy" className="hover:text-slate-600">Privacy</Link>
+        {" "}·{" "}
+        <a href="mailto:thomas@lescoach.nl" className="hover:text-slate-600">Contact</a>
+      </footer>
+    </main>
+  );
+}

@@ -325,16 +325,6 @@ function ChipRow({
             {s}
           </button>
         ))}
-        {!expanded && hiddenCount > 0 && (
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => setExpanded(true)}
-            className="inline-flex items-center text-sm leading-tight bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 px-3.5 py-2 rounded-full transition-colors font-medium shadow-sm whitespace-nowrap"
-          >
-            + {hiddenCount} meer
-          </button>
-        )}
       </div>
     </div>
   );
@@ -388,7 +378,7 @@ export default function ChatPage() {
   useEffect(() => {
     const wasLoading = prevLoadingRef.current;
     prevLoadingRef.current = loading;
-    if (!wasLoading || loading) return; // alleen bij transitie true→false
+    if (!wasLoading || loading) return;
     if (!autoTts) return;
     const lastMsg = messages[messages.length - 1];
     if (!lastMsg || lastMsg.role !== "assistant" || !lastMsg.content.trim()) return;
@@ -901,4 +891,149 @@ export default function ChatPage() {
                     {msg.role === "assistant" && (
                       <NoorAvatar size={36} className="shrink-0 mt-0.5 shadow-sm" alt="" />
                     )}
-                    
+                    {msg.role === "user" && (
+                      <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                        <svg className="w-4 h-4 text-slate-500" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
+                        </svg>
+                      </div>
+                    )}
+                    <div className="flex flex-col gap-1 max-w-[85%]">
+                      <div className={`rounded-2xl px-4 py-3 text-[15px] leading-relaxed shadow-sm ${
+                        msg.role === "assistant"
+                          ? "bg-white border border-amber-100 text-slate-800 rounded-tl-sm"
+                          : "bg-blue-600 text-white rounded-tr-sm"
+                      }`}>
+                        {msg.content.split("\n").map((line, j) => (
+                          <span key={j}>
+                            {line}
+                            {j < msg.content.split("\n").length - 1 && <br />}
+                          </span>
+                        ))}
+                      </div>
+                      {msg.role === "assistant" && isLast ? (
+                        <div className="flex items-center gap-1 pl-1">
+                          <SpeakerButton text={msg.content} />
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {/* Chips appear below the last assistant message */}
+                  {msg.role === "assistant" && isLast && suggestions.length > 0 && !loading && (
+                    <ChipRow
+                      suggestions={suggestions}
+                      onSelect={(s) => sendMessage(s)}
+                      disabled={loading}
+                    />
+                  )}
+                </div>
+              );
+            })}
+
+            {isSearching && <SearchingIndicator />}
+            {loading && !isSearching && <TypingIndicator />}
+            <div ref={bottomRef} />
+          </div>
+
+          {/* Intake progress pill */}
+          {(() => {
+            const userTurns = messages.filter((m) => m.role === "user").length;
+            if (done || userTurns < 1 || userTurns >= 9) return null;
+            const vraagNr = Math.min(userTurns + 1, 4);
+            return (
+              <div className="shrink-0 text-center px-4 pb-1 pt-0.5">
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-400 bg-slate-100 rounded-full px-3 py-1">
+                  Vraag {vraagNr} van max. 4
+                </span>
+              </div>
+            );
+          })()}
+
+          {/* Mobile: done banner — opent de eigen /resultaten pagina */}
+          {done && kenniskaarten.length > 0 && (
+            <div className="lg:hidden shrink-0 mx-4 mb-3">
+              <button
+                onClick={() => router.push("/resultaten")}
+                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-2xl p-4 flex items-center justify-between shadow-sm active:scale-[0.99] transition-transform"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <div className="text-left">
+                    <div className="text-sm font-semibold">Bekijk resultaten</div>
+                    <div className="text-xs text-blue-100">{kenniskaarten.length} kenniskaart{kenniskaarten.length === 1 ? "" : "en"} &middot; {displayExperts.length} expert{displayExperts.length === 1 ? "" : "s"}</div>
+                  </div>
+                </div>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          )}
+
+          {/* Input */}
+          <div className="shrink-0 bg-white border-t border-amber-100 px-4 py-3 pb-[env(safe-area-inset-bottom,0.75rem)]">
+            {piiWarning && (
+              <div className="max-w-3xl mx-auto mb-2 flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-3 py-2 text-xs text-green-700">
+                <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                Naam en persoonsgegevens automatisch verwijderd.
+              </div>
+            )}
+            <div className="flex items-end gap-2 max-w-3xl mx-auto">
+              <MicButton
+                disabled={loading}
+                onTranscript={(t) => setInput(t)}
+                getCurrentInput={() => input}
+              />
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={done ? "Stel een vervolgvraag…" : "Typ of dicteer je bericht…"}
+                rows={1}
+                disabled={loading}
+                className="flex-1 resize-none rounded-2xl border border-amber-100 bg-amber-50/40 px-4 py-3 text-[15px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 max-h-40 overflow-y-auto"
+                style={{ lineHeight: "1.5" }}
+              />
+              <button
+                onClick={() => sendMessage()}
+                disabled={!input.trim() || loading}
+                className="w-11 h-11 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 text-white rounded-2xl flex items-center justify-center transition-colors shrink-0"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.269 20.876L5.999 12zm0 0h7.5" />
+                </svg>
+              </button>
+            </div>
+            <p className="text-center text-xs text-slate-400 mt-2">
+              Enter om te versturen · Shift+Enter voor nieuwe regel
+            </p>
+          </div>
+        </div>
+
+        {/* Results panel (desktop) — op mobiel navigeren we naar /resultaten i.p.v. dit te tonen */}
+        {done && kenniskaarten.length > 0 && (
+          <div className="hidden lg:flex flex-col w-[55%] border-l border-slate-200 bg-gradient-to-b from-slate-50 to-white overflow-y-auto print:w-full print:border-0 print:block">
+            <ReportView
+              analysis={analysis}
+              kenniskaarten={kenniskaarten}
+              primaryKaartId={primaryKaartId}
+              alternativeKaartIds={alternativeKaartIds}
+              experts={displayExperts}
+              onContactExpert={(e) => setSelectedExpert(e)}
+              onNewConversation={resetChat}
+              variant="panel"
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
