@@ -67,14 +67,12 @@ function parseNoorData(text: string): { message: string; analysis: NoorAnalysis 
 
 /**
  * Detecteer pogingen om Noor's instructies te omzeilen of haar te misbruiken.
- * Geeft een gepaste, vriendelijke redirect als de intentie niet onderwijs-gerelateerd is.
  */
 function detectJailbreak(messages: Message[]): string | null {
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
   if (!lastUser) return null;
   const txt = lastUser.content.toLowerCase();
 
-  // Expliciete jailbreak-patronen
   const jailbreakPatterns = [
     /vergeet\s+(je\s+)?(instructies|regels|persona|rol)/i,
     /ignore\s+(your\s+)?(instructions|rules|system\s+prompt)/i,
@@ -96,7 +94,6 @@ function detectJailbreak(messages: Message[]): string | null {
     }
   }
 
-  // Duidelijk niet-onderwijs gerelateerde verzoeken (grof afwijkend)
   const offTopicPatterns = [
     /\brecept\b.*\b(kook|bak|mak)\b/i,
     /\b(mop|grap|joke)\b.*\bvertel\b/i,
@@ -121,8 +118,6 @@ export async function POST(request: NextRequest) {
   if (!rl.ok) return rateLimitResponse(rl) as unknown as Response;
 
   // ── Parse request body BEFORE creating the stream ─────────────────────────
-  // (ReadableStream.start() runs asynchronously; the request body must be
-  // consumed while the request object is still alive.)
   let parsedBody: { messages?: unknown } | null = null;
   try {
     parsedBody = await request.json();
@@ -298,7 +293,6 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          // Parse the complete final response
           const { message: withoutChips } = parseSuggestions(finalFullText);
           const { message, analysis } = parseNoorData(withoutChips);
 
@@ -322,8 +316,54 @@ export async function POST(request: NextRequest) {
 
           const safeMessage = message?.trim() || "Rechts zie je wat Noor voor je heeft gevonden. Wil je persoonlijk advies op maat? Via de knop kun je direct contact opnemen met een expert.";
 
-          // Log gesprek
           try {
             const primaryKaart = kenniskaarten.find((k) => k.id === primaryKaartId) || kenniskaarten[0];
             const berichten = [
-              ...safeMessages.map((m) => ({ role: m.role, content: typeof m.con
+              ...safeMessages.map((m) => ({ role: m.role, content: typeof m.content === "string" ? m.content : "" })),
+              { role: "assistant" as const, content: safeMessage },
+            ].filter((m) => m.role === "user" || m.role === "assistant");
+            const gesprekId = await logGesprek({
+              schoolId: schoolIdForLog, leraarId: leraarIdForLog,
+              zoekterm: toolInput!.zoekterm, categorie: primaryKaart?.categorie || "",
+              kenniskaartTitels: kenniskaarten.map((k) => k.titel),
+              tokensIn: 0, tokensOut: 0,
+              primaryKaart: analysis?.primaryKaartTitel || primaryKaart?.titel || "",
+              samenvatting: analysis?.profileLine || "",
+              berichten: berichten as { role: "user" | "assistant"; content: string }[],
+            });
+            if (analysis?.signaal?.trim()) {
+              void logMeldcodeSignaal({
+                signaalTekst: analysis.signaal,
+                samenvatting: analysis.profileLine || toolInput!.zoekterm,
+                leraarId: leraarIdForLog, schoolId: schoolIdForLog, gesprekId,
+              });
+            }
+          } catch (err) { console.warn("[stream] logGesprek mislukt:", err); }
+
+          send({ type: "result", data: { message: safeMessage, kenniskaarten, experts, analysis, primaryKaartId, alternativeKaartIds, done: true, piiFiltered: piiDetected } });
+          return done();
+        }
+
+        // ── Intake response (no tool call) ───────────────────────────────────
+        const { message: intakeMsg, suggestions } = parseSuggestions(fullText);
+        const { message: cleanMsg } = parseNoorData(intakeMsg);
+        send({ type: "suggestions", data: suggestions });
+        send({ type: "intake_done", data: { message: cleanMsg || intakeMsg, suggestions } });
+        done();
+
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(JSON.stringify({ level: "error", scope: "chat-stream", message: msg, stack: err instanceof Error ? err.stack?.slice(0, 500) : undefined }));
+        error("Er is iets misgegaan. Probeer het opnieuw.");
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+    },
+  });
+}
