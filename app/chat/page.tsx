@@ -921,6 +921,9 @@ export default function ChatPage() {
           <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
             {messages.map((msg, i) => {
               const isLast = i === messages.length - 1;
+              // Skip de lege streaming-placeholder — de TypingIndicator hieronder
+              // toont "Noor denkt na" totdat het eerste fragment binnenkomt.
+              if (msg.role === "assistant" && msg.content.length === 0) return null;
               return (
                 <div key={i} className="space-y-2">
                   <div className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
@@ -1007,7 +1010,11 @@ export default function ChatPage() {
             })}
 
             {isSearching && <SearchingIndicator />}
-            {loading && !isSearching && <TypingIndicator />}
+            {loading && !isSearching && (() => {
+              const last = messages[messages.length - 1];
+              const lastIsEmpty = !!last && last.role === "assistant" && last.content.length === 0;
+              return lastIsEmpty ? <TypingIndicator /> : null;
+            })()}
             <div ref={bottomRef} />
           </div>
 
