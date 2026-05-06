@@ -65,9 +65,101 @@ function parseNoorData(text: string): { message: string; analysis: NoorAnalysis 
   } catch { return { message: cleaned, analysis: null }; }
 }
 
+/**
+ * Detecteer pogingen om Noor's instructies te omzeilen of haar te misbruiken.
+ * Geeft een gepaste, vriendelijke redirect als de intentie niet onderwijs-gerelateerd is.
+ */
+function detectJailbreak(messages: Message[]): string | null {
+  const lastUser = [...messages].reverse().find((m) => m.role === "user");
+  if (!lastUser) return null;
+  const txt = lastUser.content.toLowerCase();
+
+  // Expliciete jailbreak-patronen
+  const jailbreakPatterns = [
+    /vergeet\s+(je\s+)?(instructies|regels|persona|rol)/i,
+    /ignore\s+(your\s+)?(instructions|rules|system\s+prompt)/i,
+    /pretend\s+you\s+are\s+(not|without)/i,
+    /act\s+as\s+(if\s+you\s+have\s+no|a\s+different)/i,
+    /you\s+are\s+now\s+(?!noor)/i,
+    /jij\s+bent\s+nu\s+(?!noor)/i,
+    /doe\s+alsof\s+je\s+(geen|een\s+andere)/i,
+    /negeer\s+(je\s+)?(instructies|regels|systeem)/i,
+    /system\s*prompt/i,
+    /DAN\s+mode/i,
+    /developer\s+mode/i,
+    /jailbreak/i,
+  ];
+
+  for (const pattern of jailbreakPatterns) {
+    if (pattern.test(lastUser.content)) {
+      return "Ik ben Noor, jouw assistent in het speciaal onderwijs. Mijn focus ligt op leerlingen en hun ondersteuning — daar ben ik goed in. Heb je een vraag over een leerling? Ik help je graag verder.";
+    }
+  }
+
+  // Duidelijk niet-onderwijs gerelateerde verzoeken (grof afwijkend)
+  const offTopicPatterns = [
+    /\brecept\b.*\b(kook|bak|mak)\b/i,
+    /\b(mop|grap|joke)\b.*\bvertel\b/i,
+    /\bvertel\b.*\b(mop|grap|joke)\b/i,
+    /schrijf\s+(een\s+)?(roman|gedicht|liedje|song|lied)\b/i,
+    /\b(hack|exploit|malware|virus)\b/i,
+    /\bwapen(s)?\b/i,
+    /\bsexu/i,
+  ];
+
+  for (const pattern of offTopicPatterns) {
+    if (pattern.test(txt)) {
+      return "Dat valt buiten wat ik voor je kan doen. Ik ben speciaal getraind om leerkrachten in het speciaal onderwijs te ondersteunen bij vragen over leerlingen. Vertel me over een leerling — dan kan ik je echt helpen.";
+    }
+  }
+
+  return null;
+}
+
 export async function POST(request: NextRequest) {
   const rl = rateLimit(`chat:${clientIdFromRequest(request)}`, 20, 10 * 60_000);
   if (!rl.ok) return rateLimitResponse(rl) as unknown as Response;
+
+  // ── Parse request body BEFORE creating the stream ─────────────────────────
+  // (ReadableStream.start() runs asynchronously; the request body must be
+  // consumed while the request object is still alive.)
+  let parsedBody: { messages?: unknown } | null = null;
+  try {
+    parsedBody = await request.json();
+  } catch {
+    parsedBody = null;
+  }
+  const messages: Message[] = Array.isArray(parsedBody?.messages) ? parsedBody.messages as Message[] : [];
+
+  // ── Parse session BEFORE the stream too ────────────────────────────────────
+  let personalizedSystem = SYSTEM_PROMPT;
+  let leraarIdForLog: string | null = null;
+  let schoolIdForLog: string | null = null;
+  try {
+    const cookie = request.cookies.get(AUTH_COOKIE.name);
+    const session = parseSession(cookie?.value);
+    if (session) {
+      const leraar = await getLeraar(session.leraarId);
+      if (leraar && leraar.status !== "geblokkeerd") {
+        leraarIdForLog = leraar.id;
+        schoolIdForLog = leraar.schoolId || null;
+        const school = leraar.schoolId ? await getSchool(leraar.schoolId) : null;
+        personalizedSystem += `\n\n## Context over de gebruiker\nJe praat met ${leraar.naam}${school ? `, werkzaam op ${school.schoolnaam}` : ""}.`;
+      }
+    }
+  } catch { /* ignore — founder shortcut heeft geen Airtable-record */ }
+
+  const userTurnCount = messages.filter((m) => m.role === "user").length;
+  if (userTurnCount >= 9) {
+    personalizedSystem += `\n\n## DIRECTIEF — intake is klaar\nDe leerkracht heeft nu ${userTurnCount} berichten gegeven. Geen nieuwe vraag. Doe de Fase 1B check-in en roep meteen zoek_kenniskaarten aan.`;
+  } else if (userTurnCount < 4) {
+    personalizedSystem += `\n\n## DIRECTIEF — intake nog niet klaar\nDe leerkracht heeft pas ${userTurnCount} bericht${userTurnCount === 1 ? "" : "en"} gegeven. Geen tool-aanroep, geen eindrapport. Stel één gerichte vervolgvraag met chip-suggesties.`;
+  }
+
+  const { messages: safeMessages, anyDetected: piiDetected, detections: piiDetections } = filterPiiFromMessages(messages);
+  if (piiDetected) {
+    console.warn(`[pii-filter] ${summarizeDetections(piiDetections)}`);
+  }
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -76,41 +168,17 @@ export async function POST(request: NextRequest) {
       const error = (msg: string) => { send({ type: "error", message: msg }); controller.close(); };
 
       try {
-        const body = await request.json().catch(() => null);
-        const messages: Message[] = Array.isArray(body?.messages) ? body.messages : [];
-
         if (!messages.length) return error("Geen berichten meegegeven");
         if (messages.length > 60) return error("Gesprek te lang — start een nieuw gesprek.");
 
-        // Session
-        let personalizedSystem = SYSTEM_PROMPT;
-        let leraarIdForLog: string | null = null;
-        let schoolIdForLog: string | null = null;
-        try {
-          const cookie = request.cookies.get(AUTH_COOKIE.name);
-          const session = parseSession(cookie?.value);
-          if (session) {
-            const leraar = await getLeraar(session.leraarId);
-            if (leraar && leraar.status !== "geblokkeerd") {
-              leraarIdForLog = leraar.id;
-              schoolIdForLog = leraar.schoolId || null;
-              const school = leraar.schoolId ? await getSchool(leraar.schoolId) : null;
-              personalizedSystem += `\n\n## Context over de gebruiker\nJe praat met ${leraar.naam}${school ? `, werkzaam op ${school.schoolnaam}` : ""}.`;
-            }
-          }
-        } catch { /* ignore */ }
+        if (piiDetected) send({ type: "pii" });
 
-        const userTurnCount = messages.filter((m) => m.role === "user").length;
-        if (userTurnCount >= 9) {
-          personalizedSystem += `\n\n## DIRECTIEF — intake is klaar\nDe leerkracht heeft nu ${userTurnCount} berichten gegeven. Geen nieuwe vraag. Doe de Fase 1B check-in en roep meteen zoek_kenniskaarten aan.`;
-        } else if (userTurnCount < 4) {
-          personalizedSystem += `\n\n## DIRECTIEF — intake nog niet klaar\nDe leerkracht heeft pas ${userTurnCount} bericht${userTurnCount === 1 ? "" : "en"} gegeven. Geen tool-aanroep, geen eindrapport. Stel één gerichte vervolgvraag met chip-suggesties.`;
-        }
-
-        const { messages: safeMessages, anyDetected: piiDetected, detections: piiDetections } = filterPiiFromMessages(messages);
-        if (piiDetected) {
-          console.warn(`[pii-filter] ${summarizeDetections(piiDetections)}`);
-          send({ type: "pii" });
+        // ── Jailbreak / off-topic veiligheidscheck ─────────────────────────
+        const safetyResponse = detectJailbreak(messages);
+        if (safetyResponse) {
+          send({ type: "chunk", text: safetyResponse });
+          send({ type: "intake_done", data: { message: safetyResponse, suggestions: ["Vertel over een leerling", "Ander onderwerp", "Hoe werkt Noor?"] } });
+          return done();
         }
 
         const tools: Anthropic.Tool[] = [{
@@ -138,7 +206,7 @@ export async function POST(request: NextRequest) {
         let toolInput: { zoekterm: string; trefwoorden: string[] } | null = null;
         let toolUseId = "";
 
-        const firstStream = await client.messages.stream({
+        const firstStream = client.messages.stream({
           model: "claude-sonnet-4-6",
           max_tokens: 1500,
           system: personalizedSystem,
@@ -150,14 +218,10 @@ export async function POST(request: NextRequest) {
         for await (const event of firstStream) {
           if (event.type === "content_block_delta") {
             if (event.delta.type === "text_delta") {
-              // Suppress <noor-data> block from streaming — parse after
               fullText += event.delta.text;
-              // Stream text up until we hit <noor-data> (don't show raw JSON to user)
               if (!fullText.includes("<noor-data>")) {
                 send({ type: "chunk", text: event.delta.text });
               }
-            } else if (event.delta.type === "input_json_delta") {
-              // Tool input accumulating — show searching indicator once
             }
           } else if (event.type === "content_block_start") {
             if (event.content_block.type === "tool_use") {
@@ -217,7 +281,7 @@ export async function POST(request: NextRequest) {
 
           // ── Phase 3: stream final report ─────────────────────────────────
           let finalFullText = "";
-          const finalStream = await client.messages.stream({
+          const finalStream = client.messages.stream({
             model: "claude-sonnet-4-6",
             max_tokens: 2000,
             system: personalizedSystem,
@@ -262,54 +326,4 @@ export async function POST(request: NextRequest) {
           try {
             const primaryKaart = kenniskaarten.find((k) => k.id === primaryKaartId) || kenniskaarten[0];
             const berichten = [
-              ...safeMessages.map((m) => ({ role: m.role, content: typeof m.content === "string" ? m.content : "" })),
-              { role: "assistant" as const, content: safeMessage },
-            ].filter((m) => m.role === "user" || m.role === "assistant");
-            const gesprekId = await logGesprek({
-              schoolId: schoolIdForLog, leraarId: leraarIdForLog,
-              zoekterm: toolInput!.zoekterm, categorie: primaryKaart?.categorie || "",
-              kenniskaartTitels: kenniskaarten.map((k) => k.titel),
-              tokensIn: 0, tokensOut: 0,
-              primaryKaart: analysis?.primaryKaartTitel || primaryKaart?.titel || "",
-              samenvatting: analysis?.profileLine || "",
-              berichten: berichten as { role: "user" | "assistant"; content: string }[],
-            });
-            if (analysis?.signaal?.trim()) {
-              void logMeldcodeSignaal({
-                signaalTekst: analysis.signaal,
-                samenvatting: analysis.profileLine || toolInput!.zoekterm,
-                leraarId: leraarIdForLog, schoolId: schoolIdForLog, gesprekId,
-              });
-            }
-          } catch (err) { console.warn("[stream] logGesprek mislukt:", err); }
-
-          send({ type: "result", data: { message: safeMessage, kenniskaarten, experts, analysis, primaryKaartId, alternativeKaartIds, done: true, piiFiltered: piiDetected } });
-          return done();
-        }
-
-        // ── Intake response (no tool call) ───────────────────────────────────
-        const { message: intakeMsg, suggestions } = parseSuggestions(fullText);
-        // Strip any noor-data that slipped through (shouldn't happen in intake)
-        const { message: cleanMsg } = parseNoorData(intakeMsg);
-        send({ type: "suggestions", data: suggestions });
-        // Intake message was already streamed chunk by chunk above
-        // Send final parsed message for the client to replace streamed text with clean version
-        send({ type: "intake_done", data: { message: cleanMsg || intakeMsg, suggestions } });
-        done();
-
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error(JSON.stringify({ level: "error", scope: "chat-stream", message: msg }));
-        error("Er is iets misgegaan. Probeer het opnieuw.");
-      }
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
-    },
-  });
-}
+              ...safeMessages.map((m) => ({ role: m.role, content: typeof m.con
