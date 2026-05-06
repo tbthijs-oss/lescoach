@@ -555,10 +555,15 @@ export default function ChatPage() {
 
             if (event.type === "chunk") {
               streamedText += event.text;
-              // Update the streaming placeholder in real-time
+              // Strip a (possibly incomplete) [Suggesties: ...] tail-line tijdens
+              // het streamen, zodat de leerkracht hem niet eerst ziet verschijnen
+              // en bij intake_done weer ziet verdwijnen (visuele flicker).
+              const display = streamedText
+                .replace(/\[(?:suggesties|suggestions)\s*:[^\]]*\]?\s*$/i, "")
+                .trimEnd();
               setMessages((prev) => {
                 const updated = [...prev];
-                updated[updated.length - 1] = { role: "assistant", content: streamedText };
+                updated[updated.length - 1] = { role: "assistant", content: display };
                 return updated;
               });
             } else if (event.type === "searching") {
