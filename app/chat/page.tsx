@@ -17,6 +17,21 @@ import {
 // app/resultaten/page.tsx.
 const RESULTS_STORAGE_KEY = "lescoach:last-results:v1";
 
+// Starter-voorbeelden voor nieuwe gebruikers — verschijnen onder Noor's
+// openingsbericht zodat een leerkracht in één klik een gesprek kan starten.
+const STARTER_EXAMPLES = [
+  "Een kleuter van 5 die niet meedoet aan de kring",
+  "Een leerling die plotseling agressief wordt",
+  "Een 8-jarige die niet vooruitkomt met lezen",
+];
+
+// Vervolgvraag-voorstellen ná het rapport — context blijft behouden.
+const FOLLOWUP_SUGGESTIONS = [
+  "Wat kan ik vandaag al proberen?",
+  "Hoe leg ik dit uit aan ouders?",
+  "En als dit niet werkt?",
+];
+
 // ─── Typing indicator ─────────────────────────────────────────────────────────
 
 function TypingIndicator() {
@@ -359,6 +374,7 @@ export default function ChatPage() {
   const confirmResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoPlayAudioRef = useRef<HTMLAudioElement | null>(null);
   const prevLoadingRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const router = useRouter();
 
   // Laad auto-TTS voorkeur + onboarding-status uit localStorage
@@ -526,10 +542,15 @@ export default function ChatPage() {
         : newMessages;
 
     try {
+      // AbortController zodat de leerkracht 'Stop genereren' kan klikken
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       const res = await fetch("/api/chat/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: apiMessages }),
+        signal: controller.signal,
       });
 
       if (!res.ok || !res.body) throw new Error("stream-start-failed");
@@ -625,13 +646,23 @@ export default function ChatPage() {
           } catch { /* ignore parse errors */ }
         }
       }
-    } catch {
-      setMessages([...newMessages, { role: "assistant", content: "Sorry, er is iets misgegaan. Probeer het opnieuw." }]);
+    } catch (err) {
+      const aborted =
+        err instanceof DOMException && err.name === "AbortError";
+      if (!aborted) {
+        setMessages([...newMessages, { role: "assistant", content: "Sorry, er is iets misgegaan. Probeer het opnieuw." }]);
+      }
+      // Bij abort: laat het deels-getypte bericht staan zoals het nu is.
     } finally {
+      abortControllerRef.current = null;
       setLoading(false);
       setIsSearching(false);
       setTimeout(() => inputRef.current?.focus(), 100);
     }
+  }
+
+  function stopGeneration() {
+    abortControllerRef.current?.abort();
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -915,6 +946,14 @@ export default function ChatPage() {
                             {j < msg.content.split("\n").length - 1 && <br />}
                           </span>
                         ))}
+                        {/* Typing-cursor: alleen op het laatste bericht van Noor terwijl ze streamt */}
+                        {msg.role === "assistant" &&
+                          isLast &&
+                          loading &&
+                          !isSearching &&
+                          msg.content.length > 0 && (
+                            <span className="noor-cursor text-blue-500" aria-hidden="true" />
+                          )}
                       </div>
                       {msg.role === "assistant" && isLast ? (
                         <div className="flex items-center gap-1 pl-1">
@@ -932,6 +971,37 @@ export default function ChatPage() {
                       disabled={loading}
                     />
                   )}
+
+                  {/* Starter-voorbeelden — alleen bij de allereerste turn, vóór de
+                      leerkracht iets heeft getypt. Helpt mensen die niet weten waar
+                      ze moeten beginnen. */}
+                  {msg.role === "assistant" &&
+                    isLast &&
+                    !loading &&
+                    !done &&
+                    messages.length === 1 &&
+                    suggestions.length === 0 && (
+                      <div className="flex items-start gap-3 pl-11 mt-2">
+                        <div className="flex flex-col gap-2 max-w-full w-full">
+                          <span className="text-[11px] uppercase tracking-wider text-slate-400 font-medium">
+                            Of begin met een voorbeeld
+                          </span>
+                          <div className="flex flex-wrap gap-2">
+                            {STARTER_EXAMPLES.map((ex) => (
+                              <button
+                                key={ex}
+                                type="button"
+                                disabled={loading}
+                                onClick={() => sendMessage(ex)}
+                                className="text-left text-sm leading-snug bg-amber-50 border border-amber-200 text-slate-700 hover:bg-amber-100 hover:border-amber-300 active:bg-amber-200 disabled:opacity-40 px-3.5 py-2 rounded-2xl transition-colors shadow-sm max-w-full"
+                              >
+                                {ex}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                 </div>
               );
             })}
@@ -980,6 +1050,31 @@ export default function ChatPage() {
             </div>
           )}
 
+          {/* Vervolgvraag-voorstellen na rapport — houdt context vast */}
+          {done && !loading && suggestions.length === 0 && (
+            <div className="shrink-0 px-4 pt-2 pb-1">
+              <div className="max-w-3xl mx-auto">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-[11px] uppercase tracking-wider text-slate-400 font-medium">
+                    Stel een vervolgvraag
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {FOLLOWUP_SUGGESTIONS.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => sendMessage(s)}
+                      className="text-sm leading-tight bg-white border border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-500 active:bg-blue-100 px-3.5 py-2 rounded-full transition-colors font-medium shadow-sm"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Input */}
           <div className="shrink-0 bg-white border-t border-amber-100 px-4 py-3 pb-[env(safe-area-inset-bottom,0.75rem)]">
             {piiWarning && (
@@ -1001,21 +1096,42 @@ export default function ChatPage() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={done ? "Stel een vervolgvraag…" : "Typ of dicteer je bericht…"}
+                placeholder={
+                  loading
+                    ? "Noor is aan het schrijven…"
+                    : done
+                    ? "Stel een vervolgvraag…"
+                    : "Typ of dicteer je bericht…"
+                }
                 rows={1}
                 disabled={loading}
                 className="flex-1 resize-none rounded-2xl border border-amber-100 bg-amber-50/40 px-4 py-3 text-[15px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 max-h-40 overflow-y-auto"
                 style={{ lineHeight: "1.5" }}
               />
-              <button
-                onClick={() => sendMessage()}
-                disabled={!input.trim() || loading}
-                className="w-11 h-11 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 text-white rounded-2xl flex items-center justify-center transition-colors shrink-0"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.269 20.876L5.999 12zm0 0h7.5" />
-                </svg>
-              </button>
+              {loading ? (
+                <button
+                  onClick={stopGeneration}
+                  type="button"
+                  title="Stop met genereren"
+                  aria-label="Stop met genereren"
+                  className="w-11 h-11 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl flex items-center justify-center transition-colors shrink-0"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <rect x="6" y="6" width="12" height="12" rx="1.5" />
+                  </svg>
+                </button>
+              ) : (
+                <button
+                  onClick={() => sendMessage()}
+                  disabled={!input.trim()}
+                  className="w-11 h-11 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 text-white rounded-2xl flex items-center justify-center transition-colors shrink-0"
+                  aria-label="Verstuur bericht"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.269 20.876L5.999 12zm0 0h7.5" />
+                  </svg>
+                </button>
+              )}
             </div>
             <p className="text-center text-xs text-slate-400 mt-2">
               Enter om te versturen · Shift+Enter voor nieuwe regel
