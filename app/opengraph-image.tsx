@@ -22,8 +22,8 @@ export default function OgImage() {
           height: "100%",
           display: "flex",
           flexDirection: "column",
-          background: "linear-gradient(180deg, #0b1e54 0%, #1e3a8a 100%)",
-          color: "#fff",
+          background: "linear-gradient(180deg, #F5F0E8 0%, #EDE6D6 100%)",
+          color: "#1e293b",
           fontFamily: "system-ui, sans-serif",
         }}
       >
@@ -38,7 +38,7 @@ export default function OgImage() {
           <div style={{ fontSize: 72, fontWeight: 800, letterSpacing: -2, lineHeight: 1 }}>
             LesCoach
           </div>
-          <div style={{ fontSize: 28, color: "#fbbf24", marginTop: 8 }}>
+          <div style={{ fontSize: 28, color: "#8B1A4A", marginTop: 8 }}>
             Met Noor — specialist speciaal onderwijs
           </div>
         </div>
@@ -76,7 +76,7 @@ export default function OgImage() {
             top: 56,
             right: 80,
             fontSize: 22,
-            color: "#cbd5e1",
+            color: "#8B1A4A",
             letterSpacing: 1,
           }}
         >
@@ -86,4 +86,3 @@ export default function OgImage() {
     ),
     { ...size }
   );
-}

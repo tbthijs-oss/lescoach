@@ -202,8 +202,8 @@ export default function Home() {
           <div className="flex justify-center mb-6">
             <NoorAvatar size={88} className="drop-shadow-md" />
           </div>
-          <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 text-sm font-medium px-4 py-1.5 rounded-full mb-6">
-            <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+          <div className="inline-flex items-center gap-2 bg-[#F5F0E8] text-[#8B1A4A] text-sm font-medium px-4 py-1.5 rounded-full mb-6 border border-[#d4a0b5]">
+            <span className="w-2 h-2 bg-[#8B1A4A] rounded-full animate-pulse" />
             Hoi, ik ben Noor — specialist speciaal onderwijs
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 leading-tight mb-5">
@@ -411,16 +411,16 @@ export default function Home() {
       </section>
 
       {/* ── Wie is Noor ──────────────────────────────────────────────────── */}
-      <section className="px-6 py-16 bg-blue-600 text-white">
+      <section className="px-6 py-16 bg-[#8B1A4A] text-white">
         <div className="max-w-4xl mx-auto">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8">
-            <NoorAvatar size={88} className="shrink-0" />
+            <NoorAvatar size={88} className="shrink-0 ring-4 ring-white/30" />
             <div>
               <h2 className="text-2xl font-bold mb-3">Wie is Noor?</h2>
-              <p className="text-blue-100 leading-relaxed mb-4">
+              <p className="text-[#f0d6e0] leading-relaxed mb-4">
                 Noor is een AI-assistent getraind als specialist speciaal onderwijs. Ze combineert kennis over ADHD, autisme, dyslexie, angststoornissen, motorische problemen, gedragsproblemen en meer — en koppelt die kennis aan een netwerk van echte experts.
               </p>
-              <p className="text-blue-100 leading-relaxed mb-6">
+              <p className="text-[#f0d6e0] leading-relaxed mb-6">
                 Ze stelt altijd de juiste vervolgvragen, werkt volledig anoniem en weet precies wanneer ze moet doorverwijzen. Geen diagnoses, geen medisch advies — wel concrete, toepasbare hulp.
               </p>
               <div className="flex flex-wrap gap-2">
@@ -499,8 +499,4 @@ export default function Home() {
         {" "}·{" "}
         <Link href="/privacy" className="hover:text-slate-600">Privacy</Link>
         {" "}·{" "}
-        <a href="mailto:thomas@lescoach.nl" className="hover:text-slate-600">Contact</a>
-      </footer>
-    </main>
-  );
-}
+        <a href="mailto:thomas@lescoach.nl" className="hover:text-slate-
