@@ -20,9 +20,9 @@ const BENEFITS = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
       </svg>
     ),
-    titel: "Volledig anoniem",
+    titel: "Anoniem over de leerling",
     tekst:
-      "Je noemt nooit de naam van het kind. Noor werkt altijd met 'de leerling' — geen persoonsgegevens, geen dossier, geen AVG-risico.",
+      "Je noemt nooit de naam van het kind. Noor werkt altijd met 'de leerling' — geen leerlingdossier, geen BSN, geen AVG-risico. (Bij doorverwijzing naar een expert deelt jij zelf wat nodig is.)",
   },
   {
     icon: (
@@ -212,14 +212,15 @@ export default function Home() {
             een kenniskaart én expert
           </h1>
           <p className="text-lg text-slate-500 leading-relaxed mb-8 max-w-xl mx-auto">
-            Noor stelt je max. 4 gerichte vragen en geeft je concrete klassenstips.
-            Geen wachtrij, geen afspraak, geen DSM-jargon.
+            Noor stelt een paar gerichte vragen en geeft je concrete klassenstips
+            op basis van kenniskaarten van Kennisgroep Speciaal. Geen wachtrij, geen
+            afspraak, geen DSM-jargon.
           </p>
           {/* Drie kernfeiten */}
           <div className="flex flex-wrap justify-center gap-3 mb-8">
             {[
               { icon: "⚡", label: "Direct antwoord" },
-              { icon: "🔒", label: "Volledig anoniem" },
+              { icon: "🔒", label: "Geen leerlingdossier" },
               { icon: "📋", label: "Concrete klassenstips" },
             ].map(({ icon, label }) => (
               <span key={label} className="inline-flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 text-sm font-medium px-3.5 py-2 rounded-full shadow-sm">
@@ -332,7 +333,7 @@ export default function Home() {
             {[
               { getal: "5 min", label: "Gemiddelde tijd van vraag tot advies" },
               { getal: "30+", label: "Kenniskaarten van specialisten" },
-              { getal: "100%", label: "AVG-proof — geen persoonsgegevens" },
+              { getal: "AVG", label: "Geen leerlingdossier, PII-filter ingebakken" },
               { getal: "24/7", label: "Beschikbaar voor elke leerkracht" },
             ].map((s) => (
               <div key={s.label}>
@@ -421,7 +422,7 @@ export default function Home() {
                 Noor is een AI-assistent getraind als specialist speciaal onderwijs. Ze combineert kennis over ADHD, autisme, dyslexie, angststoornissen, motorische problemen, gedragsproblemen en meer — en koppelt die kennis aan een netwerk van echte experts.
               </p>
               <p className="text-[#f0d6e0] leading-relaxed mb-6">
-                Ze stelt altijd de juiste vervolgvragen, werkt volledig anoniem en weet precies wanneer ze moet doorverwijzen. Geen diagnoses, geen medisch advies — wel concrete, toepasbare hulp.
+                Ze stelt altijd de juiste vervolgvragen, werkt zonder leerlingdossier (de leerling blijft anoniem in het gesprek) en weet precies wanneer ze moet doorverwijzen. Geen diagnoses, geen medisch advies — wel concrete, toepasbare hulp.
               </p>
               <div className="flex flex-wrap gap-2">
                 {["ADHD", "Autisme", "Dyslexie", "Angststoornissen", "Motorische problemen", "Gedragsproblemen", "Aandacht & concentratie", "Sociaal-emotioneel", "Taal & lezen", "Hoogbegaafdheid"].map((tag) => (
@@ -496,7 +497,3 @@ export default function Home() {
         <a href="https://kennisgroepspeciaal.nl" className="underline hover:text-slate-600" target="_blank" rel="noopener noreferrer">
           Kennisgroep Speciaal
         </a>
-        {" "}·{" "}
-        <Link href="/privacy" className="hover:text-slate-600">Privacy</Link>
-        {" "}·{" "}
-        <a href="mailto:thomas@lescoach.nl" className="hover:text-slate-
