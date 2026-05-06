@@ -331,7 +331,49 @@ export default function ChatPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<Array<{ id: string; datum: string; primaryKaart: string; samenvatting: string; zoekterm: string; categorie: string }>>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [autoTts, setAutoTts] = useState(false);
+  const autoPlayAudioRef = useRef<HTMLAudioElement | null>(null);
+  const prevLoadingRef = useRef(false);
   const router = useRouter();
+
+  // Laad auto-TTS voorkeur uit localStorage
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("noor:autoTts") === "1") setAutoTts(true);
+    } catch {}
+  }, []);
+
+  // Auto-play wanneer Noor klaar is met typen en autoTts aan staat
+  useEffect(() => {
+    const wasLoading = prevLoadingRef.current;
+    prevLoadingRef.current = loading;
+    if (!wasLoading || loading) return; // alleen bij transitie true→false
+    if (!autoTts) return;
+    const lastMsg = messages[messages.length - 1];
+    if (!lastMsg || lastMsg.role !== "assistant" || !lastMsg.content.trim()) return;
+    autoPlayAudioRef.current?.pause();
+    autoPlayAudioRef.current = null;
+    (async () => {
+      try {
+        const res = await fetch(`/api/speak?text=${encodeURIComponent(lastMsg.content.slice(0, 600))}`);
+        if (!res.ok) return;
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        autoPlayAudioRef.current = audio;
+        audio.onended = () => { autoPlayAudioRef.current = null; };
+        await audio.play();
+      } catch {}
+    })();
+  }, [loading, autoTts, messages]);
+
+  function toggleAutoTts() {
+    setAutoTts(v => {
+      const next = !v;
+      try { localStorage.setItem("noor:autoTts", next ? "1" : "0"); } catch {}
+      return next;
+    });
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -429,6 +471,10 @@ export default function ChatPage() {
   async function sendMessage(text?: string) {
     const textToSend = (text ?? input).trim();
     if (!textToSend || loading) return;
+
+    // Stop any auto-playing audio when the user sends a new message
+    autoPlayAudioRef.current?.pause();
+    autoPlayAudioRef.current = null;
 
     setSuggestions([]);
     setPiiWarning(false);
@@ -838,49 +884,13 @@ export default function ChatPage() {
                 onTranscript={(t) => setInput(t)}
                 getCurrentInput={() => input}
               />
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={done ? "Stel een vervolgvraag…" : "Typ of dicteer je bericht…"}
-                rows={1}
-                disabled={loading}
-                className="flex-1 resize-none rounded-2xl border border-amber-100 bg-amber-50/40 px-4 py-3 text-[15px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 max-h-40 overflow-y-auto"
-                style={{ lineHeight: "1.5" }}
-              />
+              {/* Auto-TTS toggle — voorlezen na elk bericht */}
               <button
-                onClick={() => sendMessage()}
-                disabled={!input.trim() || loading}
-                className="w-11 h-11 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 text-white rounded-2xl flex items-center justify-center transition-colors shrink-0"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.269 20.876L5.999 12zm0 0h7.5" />
-                </svg>
-              </button>
-            </div>
-            <p className="text-center text-xs text-slate-400 mt-2">
-              Enter om te versturen · Shift+Enter voor nieuwe regel
-            </p>
-          </div>
-        </div>
-
-        {/* Results panel (desktop) — op mobiel navigeren we naar /resultaten i.p.v. dit te tonen */}
-        {done && kenniskaarten.length > 0 && (
-          <div className="hidden lg:flex flex-col w-[55%] border-l border-slate-200 bg-gradient-to-b from-slate-50 to-white overflow-y-auto print:w-full print:border-0 print:block">
-            <ReportView
-              analysis={analysis}
-              kenniskaarten={kenniskaarten}
-              primaryKaartId={primaryKaartId}
-              alternativeKaartIds={alternativeKaartIds}
-              experts={displayExperts}
-              onContactExpert={(e) => setSelectedExpert(e)}
-              onNewConversation={resetChat}
-              variant="panel"
-            />
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+                type="button"
+                onClick={toggleAutoTts}
+                title={autoTts ? "Automatisch voorlezen staat aan — klik om uit te zetten" : "Automatisch voorlezen staat uit — klik om aan te zetten"}
+                aria-label={autoTts ? "Stop automatisch voorlezen" : "Zet automatisch voorlezen aan"}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all ${
+                  autoTts
+                    ? "bg-blue-100 text-blue-600 ring-2 ring-blue-300"
+                    : "bg-slate-100 text-slate-400 hover

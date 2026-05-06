@@ -154,15 +154,20 @@ function KenniskaartCard({
             Download PDF
           </a>
         )}
-        {kaart.bronUrl && (
-          <a href={kaart.bronUrl} target="_blank" rel="noopener noreferrer"
-            className="text-xs text-slate-500 hover:underline flex items-center gap-1 min-h-[28px]">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-            Meer informatie
-          </a>
-        )}
+        {kaart.bronUrl && (() => {
+          let domain = "";
+          try { domain = new URL(kaart.bronUrl).hostname.replace(/^www\./, ""); } catch {}
+          return (
+            <a href={kaart.bronUrl} target="_blank" rel="noopener noreferrer"
+              title={kaart.bronUrl}
+              className="text-xs text-slate-500 hover:underline flex items-center gap-1 min-h-[28px]">
+              <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+              Meer informatie{domain ? ` (${domain})` : ""}
+            </a>
+          );
+        })()}
       </div>
     </div>
   );
@@ -815,11 +820,4 @@ export function StickyExpertCTA({
             <span className="block text-[11px] text-blue-200 font-medium">Vraag advies aan</span>
             <span className="block">{expert.naam}</span>
           </span>
-          <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-      </div>
-    </div>
-  );
-}
+          <svg
