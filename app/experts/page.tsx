@@ -1,254 +1,310 @@
+import { Metadata } from "next";
 import Link from "next/link";
-import { NoorAvatar } from "@/components/JeroenAvatar";
-import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Expertpool — LesCoach",
+  title: "Het team — LesCoach",
   description:
-    "Noor koppelt je aan de juiste specialist. Onze experts zijn ervaringsdeskundigen in het speciaal onderwijs — beschikbaar voor persoonlijk advies op maat.",
+    "Thomas, Joost en Mick bouwen LesCoach — zodat elke leerkracht in het speciaal onderwijs direct de juiste kennis en ondersteuning heeft.",
 };
 
-interface Expert {
-  id: string;
+interface TeamMember {
   naam: string;
-  titel: string;
+  rol: string;
   bio: string;
-  specialisaties: string[];
   linkedin: string;
-  fotoUrl: string;
-  regio: string;
-  ervaringsjaren: number;
 }
 
-// Seed-data — zichtbaar zolang Airtable nog leeg is.
-// Vervangen door Airtable-data zodra profielen zijn ingevuld via /beheer/experts.
-const SEED_EXPERTS: Expert[] = [
+const TEAM: TeamMember[] = [
   {
-    id: "seed-thomas",
     naam: "Thomas Thijs",
-    titel: "Oprichter LesCoach",
-    bio: "",
-    specialisaties: ["Speciaal onderwijs", "Begeleiding leerkrachten"],
+    rol: "Oprichter LesCoach",
+    bio: "Thomas werkt vanuit de overtuiging dat leerkrachten in het speciaal onderwijs meer verdienen dan een volle wachtlijst. Hij bouwt LesCoach om de kloof tussen kennis en de klas te dichten.",
     linkedin: "https://www.linkedin.com/in/thomas-thijs/",
-    fotoUrl: "",
-    regio: "Nederland",
-    ervaringsjaren: 0,
   },
   {
-    id: "seed-joost",
     naam: "Joost Stam",
-    titel: "Specialist speciaal onderwijs",
+    rol: "Partner",
     bio: "",
-    specialisaties: ["Speciaal onderwijs"],
     linkedin: "https://www.linkedin.com/in/joost-stam-b36a9013b/",
-    fotoUrl: "",
-    regio: "Nederland",
-    ervaringsjaren: 0,
   },
   {
-    id: "seed-mick",
     naam: "Mick Kitzen",
-    titel: "Specialist speciaal onderwijs",
+    rol: "Partner",
     bio: "",
-    specialisaties: ["Speciaal onderwijs"],
     linkedin: "https://www.linkedin.com/in/mickkitzen/",
-    fotoUrl: "",
-    regio: "Nederland",
-    ervaringsjaren: 0,
   },
 ];
 
-async function getExperts(): Promise<Expert[]> {
-  const BASE = process.env.AIRTABLE_BASE_ID;
-  const TOKEN = process.env.AIRTABLE_API_TOKEN;
-  if (!BASE || !TOKEN) return SEED_EXPERTS;
-  try {
-    const url =
-      `https://api.airtable.com/v0/${BASE}/Experts` +
-      `?sort[0][field]=Naam&sort[0][direction]=asc`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${TOKEN}` },
-      next: { revalidate: 300 },
-    });
-    if (!res.ok) return SEED_EXPERTS;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data: { records: any[] } = await res.json();
-    if (!data.records || data.records.length === 0) return SEED_EXPERTS;
-    return data.records.map((r) => {
-      const f = r.fields;
-      const raw = f["Specialisaties"] ?? "";
-      const specialisaties: string[] = Array.isArray(raw)
-        ? raw
-        : typeof raw === "string" && raw.length > 0
-        ? raw.split(",").map((s: string) => s.trim())
-        : [];
-      return {
-        id: r.id,
-        naam: f["Naam"] ?? "",
-        titel: f["Titel"] ?? "",
-        bio: f["Bio"] ?? "",
-        specialisaties,
-        linkedin: f["LinkedIn"] ?? "",
-        fotoUrl: f["Foto URL"] ?? "",
-        regio: f["Regio"] ?? "",
-        ervaringsjaren: Number(f["Ervaringsjaren"] ?? 0),
-      };
-    });
-  } catch {
-    return SEED_EXPERTS;
-  }
+function Initials({ naam }: { naam: string }) {
+  const parts = naam.trim().split(" ");
+  const first = parts[0]?.[0] ?? "";
+  const last = parts[parts.length - 1]?.[0] ?? "";
+  return (
+    <div
+      style={{
+        width: 72,
+        height: 72,
+        borderRadius: "50%",
+        background: "#8B1A4A",
+        color: "#F5F0E8",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 24,
+        fontWeight: 700,
+        flexShrink: 0,
+        letterSpacing: 1,
+      }}
+    >
+      {first}{last}
+    </div>
+  );
 }
 
-export default async function ExpertsPage() {
-  const experts = await getExperts();
-
+export default function TeamPage() {
   return (
-    <main className="min-h-screen bg-[#F5F0E8]">
-      {/* ── Nav ──────────────────────────────────────────────────────────── */}
-      <header className="bg-white border-b border-slate-100 px-6 py-4">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <NoorAvatar size={32} alt="" />
-            <span className="text-slate-800 font-semibold text-sm">LesCoach</span>
-          </Link>
-          <Link
-            href="/chat"
-            className="text-sm font-semibold text-white bg-[#8B1A4A] hover:bg-[#7a1740] px-4 py-2 rounded-lg transition-colors"
+    <main
+      style={{
+        minHeight: "100vh",
+        background: "#F5F0E8",
+        fontFamily: "inherit",
+      }}
+    >
+      {/* Nav */}
+      <nav
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "20px 32px",
+          borderBottom: "1px solid #e8e0d4",
+          background: "#F5F0E8",
+        }}
+      >
+        <Link
+          href="/"
+          style={{
+            fontWeight: 800,
+            fontSize: 20,
+            color: "#1a1a2e",
+            textDecoration: "none",
+            letterSpacing: -0.5,
+          }}
+        >
+          LesCoach
+        </Link>
+        <Link
+          href="/chat"
+          style={{
+            background: "#8B1A4A",
+            color: "#fff",
+            padding: "10px 22px",
+            borderRadius: 8,
+            textDecoration: "none",
+            fontWeight: 600,
+            fontSize: 14,
+          }}
+        >
+          Ga naar Noor →
+        </Link>
+      </nav>
+
+      {/* Hero */}
+      <section style={{ textAlign: "center", padding: "72px 24px 56px" }}>
+        <span
+          style={{
+            display: "inline-block",
+            border: "1.5px solid #8B1A4A",
+            color: "#8B1A4A",
+            borderRadius: 999,
+            padding: "5px 18px",
+            fontSize: 13,
+            fontWeight: 600,
+            marginBottom: 20,
+            letterSpacing: 0.3,
+          }}
+        >
+          Het team
+        </span>
+        <h1
+          style={{
+            fontSize: "clamp(32px, 6vw, 52px)",
+            fontWeight: 800,
+            color: "#1a1a2e",
+            margin: "0 0 20px",
+            letterSpacing: -1,
+            lineHeight: 1.1,
+          }}
+        >
+          Wie bouwt LesCoach?
+        </h1>
+        <p
+          style={{
+            fontSize: 18,
+            color: "#555",
+            maxWidth: 560,
+            margin: "0 auto",
+            lineHeight: 1.6,
+          }}
+        >
+          Drie mensen met dezelfde overtuiging: elke leerkracht verdient directe,
+          goede ondersteuning — zonder wachtrij.
+        </p>
+      </section>
+
+      {/* Team cards */}
+      <section
+        style={{
+          maxWidth: 960,
+          margin: "0 auto",
+          padding: "0 24px 96px",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+          gap: 28,
+        }}
+      >
+        {TEAM.map((member) => (
+          <article
+            key={member.naam}
+            style={{
+              background: "#fff",
+              borderRadius: 16,
+              padding: 36,
+              boxShadow: "0 2px 16px rgba(0,0,0,0.07)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 20,
+            }}
           >
-            Gesprek starten →
-          </Link>
-        </div>
-      </header>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+              <Initials naam={member.naam} />
+              <div>
+                <div
+                  style={{
+                    fontWeight: 700,
+                    fontSize: 18,
+                    color: "#1a1a2e",
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {member.naam}
+                </div>
+                <div
+                  style={{
+                    fontSize: 14,
+                    color: "#8B1A4A",
+                    fontWeight: 600,
+                    marginTop: 2,
+                  }}
+                >
+                  {member.rol}
+                </div>
+              </div>
+            </div>
 
-      {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="px-6 py-16 text-center">
-        <div className="max-w-2xl mx-auto">
-          <div className="inline-flex items-center gap-2 bg-white text-[#8B1A4A] text-sm font-medium px-4 py-1.5 rounded-full mb-6 border border-[#d4a0b5]">
-            <span className="w-2 h-2 bg-[#8B1A4A] rounded-full" />
-            Persoonlijk advies
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
-            Onze expertpool
-          </h1>
-          <p className="text-lg text-slate-500 leading-relaxed max-w-xl mx-auto">
-            Noor geeft je direct een kenniskaart. Wil je daarna persoonlijk advies?
-            Onze experts denken met je mee — concreet, zonder wachtrij.
-          </p>
-        </div>
+            {/* Bio */}
+            {member.bio && (
+              <p
+                style={{
+                  fontSize: 15,
+                  color: "#444",
+                  lineHeight: 1.65,
+                  margin: 0,
+                  flexGrow: 1,
+                }}
+              >
+                {member.bio}
+              </p>
+            )}
+
+            {/* LinkedIn */}
+            <a
+              href={member.linkedin}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                background: "#0A66C2",
+                color: "#fff",
+                padding: "10px 18px",
+                borderRadius: 8,
+                textDecoration: "none",
+                fontWeight: 600,
+                fontSize: 14,
+                width: "fit-content",
+                marginTop: "auto",
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+              </svg>
+              LinkedIn
+            </a>
+          </article>
+        ))}
       </section>
 
-      {/* ── Experts grid ─────────────────────────────────────────────────── */}
-      <section className="px-6 pb-20">
-        <div className="max-w-5xl mx-auto grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {experts.map((expert) => (
-            <ExpertCard key={expert.id} expert={expert} />
-          ))}
-        </div>
-      </section>
-
-      {/* ── CTA ──────────────────────────────────────────────────────────── */}
-      <section className="px-6 py-12 bg-white border-t border-slate-100 text-center">
-        <p className="text-slate-500 mb-4 text-sm">
-          Ben je zelf specialist in het speciaal onderwijs?
+      {/* CTA */}
+      <section
+        style={{
+          background: "#8B1A4A",
+          color: "#fff",
+          textAlign: "center",
+          padding: "64px 24px",
+        }}
+      >
+        <h2
+          style={{
+            fontSize: "clamp(24px, 4vw, 36px)",
+            fontWeight: 800,
+            margin: "0 0 16px",
+            letterSpacing: -0.5,
+          }}
+        >
+          Probeer Noor gratis
+        </h2>
+        <p style={{ fontSize: 17, opacity: 0.85, margin: "0 0 32px" }}>
+          Stel je vraag en krijg direct een kenniskaart op maat.
         </p>
         <Link
-          href="/expert/login"
-          className="inline-flex items-center gap-2 bg-[#8B1A4A] hover:bg-[#7a1740] text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm"
+          href="/chat"
+          style={{
+            display: "inline-block",
+            background: "#F5F0E8",
+            color: "#8B1A4A",
+            padding: "14px 36px",
+            borderRadius: 10,
+            textDecoration: "none",
+            fontWeight: 700,
+            fontSize: 16,
+          }}
         >
-          Meld je aan als expert
+          Start een gesprek met Noor →
         </Link>
       </section>
 
-      {/* ── Footer ───────────────────────────────────────────────────────── */}
-      <footer className="text-center py-6 text-xs text-slate-400 border-t border-slate-100 bg-white">
-        LesCoach ·{" "}
-        <Link href="/privacy" className="hover:text-slate-600">
+      <footer
+        style={{
+          textAlign: "center",
+          padding: "24px",
+          fontSize: 13,
+          color: "#888",
+          background: "#F5F0E8",
+        }}
+      >
+        © {new Date().getFullYear()} LesCoach
+        {" · "}
+        <Link href="/privacy" style={{ color: "#888" }}>
           Privacy
         </Link>
-        {" "}·{" "}
-        <a href="mailto:thomas@lescoach.nl" className="hover:text-slate-600">
+        {" · "}
+        <a href="mailto:thomas@lescoach.nl" style={{ color: "#888" }}>
           Contact
         </a>
       </footer>
     </main>
-  );
-}
-
-function ExpertCard({ expert }: { expert: Expert }) {
-  const initials = expert.naam
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-
-  return (
-    <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col gap-4">
-      {/* Avatar + naam */}
-      <div className="flex items-center gap-3">
-        {expert.fotoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={expert.fotoUrl}
-            alt={expert.naam}
-            className="w-14 h-14 rounded-full object-cover bg-[#F5F0E8]"
-          />
-        ) : (
-          <div className="w-14 h-14 rounded-full bg-[#F5F0E8] flex items-center justify-center text-[#8B1A4A] font-bold text-xl shrink-0">
-            {initials}
-          </div>
-        )}
-        <div>
-          <div className="font-bold text-slate-800 leading-tight">{expert.naam}</div>
-          {expert.titel && (
-            <div className="text-sm text-[#8B1A4A] leading-tight mt-0.5">{expert.titel}</div>
-          )}
-        </div>
-      </div>
-
-      {/* Bio */}
-      {expert.bio && (
-        <p className="text-sm text-slate-600 leading-relaxed line-clamp-4">{expert.bio}</p>
-      )}
-
-      {/* Specialisaties */}
-      {expert.specialisaties.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {expert.specialisaties.slice(0, 5).map((s) => (
-            <span
-              key={s}
-              className="text-xs bg-[#F5F0E8] text-[#8B1A4A] px-2.5 py-0.5 rounded-full"
-            >
-              {s}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Meta */}
-      {(expert.regio || expert.ervaringsjaren > 0) && (
-        <div className="flex items-center gap-3 text-xs text-slate-400">
-          {expert.regio && <span>📍 {expert.regio}</span>}
-          {expert.ervaringsjaren > 0 && (
-            <span>{expert.ervaringsjaren} jaar ervaring</span>
-          )}
-        </div>
-      )}
-
-      {/* LinkedIn */}
-      {expert.linkedin && (
-        <a
-          href={expert.linkedin}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-auto inline-flex items-center gap-1.5 text-sm text-[#0A66C2] hover:underline font-medium"
-        >
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-          </svg>
-          LinkedIn
-        </a>
-      )}
-    </div>
   );
 }

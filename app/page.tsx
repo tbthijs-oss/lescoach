@@ -189,7 +189,7 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-3">
             <Link href="/experts" className="text-sm font-medium text-slate-600 hover:text-[#8B1A4A] transition-colors">
-              Experts
+              Het team
             </Link>
             <Link
               href="/chat"
