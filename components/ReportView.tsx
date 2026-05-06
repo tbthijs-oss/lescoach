@@ -390,6 +390,67 @@ export function ExpertModal({
  *  - "page" : eigen pagina (bv. /resultaten op mobiel). Compactere hero (er is
  *    al een page-header), grotere typografie, sticky bottom-CTA als experts er zijn.
  */
+
+// ─── FeedbackRow ──────────────────────────────────────────────────────────────
+
+function FeedbackRow() {
+  const [sent, setSent] = useState<"up" | "down" | null>(null);
+
+  async function sendFeedback(rating: "up" | "down") {
+    if (sent) return;
+    setSent(rating);
+    try {
+      await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rating }),
+      });
+    } catch {
+      // silent fail — UI already updated
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3 py-3 px-4 bg-slate-50 rounded-xl border border-slate-100 print:hidden">
+      <span className="text-xs text-slate-500">
+        {sent ? (
+          sent === "up"
+            ? "👍 Bedankt voor je feedback!"
+            : "👎 Bedankt — we gebruiken dit om Noor te verbeteren."
+        ) : (
+          "Was dit advies nuttig?"
+        )}
+      </span>
+      {!sent && (
+        <div className="flex gap-2">
+          <button
+            onClick={() => sendFeedback("up")}
+            type="button"
+            aria-label="Nuttig"
+            className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+            </svg>
+            Ja
+          </button>
+          <button
+            onClick={() => sendFeedback("down")}
+            type="button"
+            aria-label="Niet nuttig"
+            className="flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
+            </svg>
+            Kan beter
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ReportView({
   analysis,
   kenniskaarten,
@@ -670,6 +731,9 @@ export function ReportView({
             Nieuw gesprek
           </button>
         </div>
+
+        {/* Feedback */}
+        <FeedbackRow />
 
         {/* Disclaimer — always visible, niet alleen bij printen */}
         <div className="mt-6 pt-4 border-t border-slate-200 text-[11px] leading-relaxed text-slate-500">
