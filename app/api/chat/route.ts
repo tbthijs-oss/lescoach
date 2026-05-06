@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
     // ── Resolve sessie (geen harde eis — middleware heeft dit al gedaan voor
     // page-navigaties; hier alleen om naam/school in de prompt te injecteren +
     // om de logGesprek-call straks van meta te voorzien)
-    let personalizedSystem = SYSTEM_PROMPT;
+    let dynamicPreamble = "";
     let leraarIdForLog: string | null = null;
     let schoolIdForLog: string | null = null;
     let totalInputTokens = 0;
@@ -126,9 +126,9 @@ export async function POST(request: NextRequest) {
         if (leraar && leraar.status !== "geblokkeerd") {
           leraarIdForLog = leraar.id;
           schoolIdForLog = leraar.schoolId || null;
+          const firstName = (leraar.naam || "").trim().split(/\s+/)[0] || leraar.naam;
           const school = leraar.schoolId ? await getSchool(leraar.schoolId) : null;
-          const preamble = `\n\n## Context over de gebruiker\nJe praat met ${leraar.naam}${school ? `, werkzaam op ${school.schoolnaam}` : ""}. Je mag deze naam gebruiken als dat natuurlijk valt, maar forceer het niet en herhaal het zeker niet in elk bericht.`;
-          personalizedSystem = SYSTEM_PROMPT + preamble;
+          dynamicPreamble += `\n\n## Context over de gebruiker\nJe praat met ${leraar.naam}${school ? `, werkzaam op ${school.schoolnaam}` : ""}. Voornaam om te gebruiken: **${firstName}**. Spreek haar één keer bij voornaam aan in jouw eerste reactie van dit gesprek; daarna alleen wanneer het natuurlijk valt.`;
         }
       }
     } catch (err) {
@@ -137,16 +137,19 @@ export async function POST(request: NextRequest) {
 
     // Tel hoeveel user-turns er al zijn. We hanteren TWEE harde grenzen:
     //   - Onder 4 user-turns: tool_choice "none" — Noor MOET nog een vraag stellen.
-    //     Voorkomt dat ze al na 1-3 zinnen springt naar het rapport (te snel,
-    //     leerkracht voelt zich niet gehoord).
     //   - Vanaf 9 user-turns: tool_choice "tool" — Noor MOET zoek_kenniskaarten aanroepen.
-    //     Voorkomt een 10e vraag.
     const userTurnCount = messages.filter((m) => m.role === "user").length;
     if (userTurnCount >= 9) {
-      personalizedSystem += `\n\n## DIRECTIEF — intake is klaar\nDe leerkracht heeft nu ${userTurnCount} berichten gegeven. Je mag GEEN nieuwe vraag meer stellen. Je volgende bericht is de check-in van Fase 1B (\"Ik hoor: ... Ik ga nu de kenniskaarten erbij pakken — één momentje.\") en direct daarna roep je zoek_kenniskaarten aan met wat je hebt. Onvolledige info is geen blocker — werk met wat voorligt.`;
+      dynamicPreamble += `\n\n## DIRECTIEF — intake is klaar\nDe leerkracht heeft nu ${userTurnCount} berichten gegeven. Je mag GEEN nieuwe vraag meer stellen. Je volgende bericht is de check-in van Fase 1B (\"Ik hoor: ... Ik ga nu de kenniskaarten erbij pakken — één momentje.\") en direct daarna roep je zoek_kenniskaarten aan met wat je hebt. Onvolledige info is geen blocker — werk met wat voorligt.`;
     } else if (userTurnCount < 4) {
-      personalizedSystem += `\n\n## DIRECTIEF — intake nog niet klaar\nDe leerkracht heeft pas ${userTurnCount} bericht${userTurnCount === 1 ? "" : "en"} gegeven. Je mag NU NOG GEEN tool aanroepen en GEEN eindrapport schrijven. Stel één gerichte vervolgvraag (volg de regels van Fase 1/1A/1C) met chip-suggesties. Een rapport na minder dan vier antwoorden voelt voor de leerkracht alsof je niet écht geluisterd hebt — dat willen we voorkomen.`;
+      dynamicPreamble += `\n\n## DIRECTIEF — intake nog niet klaar\nDe leerkracht heeft pas ${userTurnCount} bericht${userTurnCount === 1 ? "" : "en"} gegeven. Je mag NU NOG GEEN tool aanroepen en GEEN eindrapport schrijven. Stel één gerichte vervolgvraag (volg de regels van Fase 1/1A/1C) met chip-suggesties.`;
     }
+
+    // System param als array zodat het statische SYSTEM_PROMPT gecached kan worden
+    const systemParam: Anthropic.TextBlockParam[] = [
+      { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
+      ...(dynamicPreamble ? [{ type: "text" as const, text: dynamicPreamble }] : []),
+    ];
 
     const {
       messages: safeMessages,
@@ -202,7 +205,7 @@ export async function POST(request: NextRequest) {
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 1500,
-      system: personalizedSystem,
+      system: systemParam,
       tools,
       messages: safeMessages,
       ...(toolChoiceOverride ? { tool_choice: toolChoiceOverride } : {}),
@@ -261,7 +264,7 @@ export async function POST(request: NextRequest) {
           const retryResponse = await client.messages.create({
             model: "claude-sonnet-4-6",
             max_tokens: 500,
-            system: personalizedSystem,
+            system: systemParam,
             messages: retryMessages,
           });
           totalInputTokens += retryResponse.usage?.input_tokens ?? 0;
@@ -316,7 +319,7 @@ export async function POST(request: NextRequest) {
         const finalResponse = await client.messages.create({
           model: "claude-sonnet-4-6",
           max_tokens: 2000,
-          system: personalizedSystem,
+          system: systemParam,
           tools,
           messages: messagesWithTool,
         });

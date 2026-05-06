@@ -67,13 +67,23 @@ function parseNoorData(text: string): { message: string; analysis: NoorAnalysis 
 
 /**
  * Detecteer pogingen om Noor's instructies te omzeilen of haar te misbruiken.
+ *
+ * Returnt:
+ *   - kind: "jailbreak" voor expliciete instructie-omzeiling / broncode-aanvraag
+ *   - kind: "off-topic" voor recepten / gedichten / privé-chat etc.
+ *   - null als de input gewoon onderwijsgerelateerd lijkt
+ *
+ * `count` telt hoeveel eerdere user-berichten in dit gesprek óók al matchten,
+ * zodat de aanroeper kan escaleren (vriendelijk → markering → afsluiten).
  */
-function detectJailbreak(messages: Message[]): string | null {
-  const lastUser = [...messages].reverse().find((m) => m.role === "user");
-  if (!lastUser) return null;
-  const txt = lastUser.content.toLowerCase();
+type SafetyHit = { kind: "jailbreak" | "off-topic"; count: number; matched: string };
 
-  const jailbreakPatterns = [
+function detectAbuse(messages: Message[]): SafetyHit | null {
+  const userMessages = messages.filter((m) => m.role === "user");
+  const lastUser = userMessages[userMessages.length - 1];
+  if (!lastUser) return null;
+
+  const jailbreakPatterns: RegExp[] = [
     /vergeet\s+(je\s+)?(instructies|regels|persona|rol)/i,
     /ignore\s+(your\s+)?(instructions|rules|system\s+prompt)/i,
     /pretend\s+you\s+are\s+(not|without)/i,
@@ -82,35 +92,102 @@ function detectJailbreak(messages: Message[]): string | null {
     /jij\s+bent\s+nu\s+(?!noor)/i,
     /doe\s+alsof\s+je\s+(geen|een\s+andere)/i,
     /negeer\s+(je\s+)?(instructies|regels|systeem)/i,
-    /system\s*prompt/i,
-    /DAN\s+mode/i,
-    /developer\s+mode/i,
-    /jailbreak/i,
+    /\bsystem\s*prompt\b/i,
+    /\bbroncode\b/i,
+    /\bsource\s*code\b/i,
+    /geef\s+(je|me)\s+(je\s+)?(instructies|prompt|broncode)/i,
+    /\bDAN\s+mode\b/i,
+    /\bdeveloper\s+mode\b/i,
+    /\bjailbreak\b/i,
   ];
 
   for (const pattern of jailbreakPatterns) {
     if (pattern.test(lastUser.content)) {
-      return "Ik ben Noor, jouw assistent in het speciaal onderwijs. Mijn focus ligt op leerlingen en hun ondersteuning — daar ben ik goed in. Heb je een vraag over een leerling? Ik help je graag verder.";
+      const count =
+        userMessages.slice(0, -1).filter((m) =>
+          jailbreakPatterns.some((p) => p.test(m.content))
+        ).length + 1;
+      return { kind: "jailbreak", count, matched: pattern.source };
     }
   }
 
-  const offTopicPatterns = [
-    /\brecept\b.*\b(kook|bak|mak)\b/i,
-    /\b(mop|grap|joke)\b.*\bvertel\b/i,
-    /\bvertel\b.*\b(mop|grap|joke)\b/i,
-    /schrijf\s+(een\s+)?(roman|gedicht|liedje|song|lied)\b/i,
-    /\b(hack|exploit|malware|virus)\b/i,
+  const offTopicPatterns: RegExp[] = [
+    /\brecept(en)?\b\s+(voor|van|op)\b/i,
+    /\b(kook|bak|braad)\s*(recept|advies|tips)\b/i,
+    /\b(spaghetti|pasta|pizza|lasagne|cake|taart)\b/i,
+    /\b(vertel|schrijf|maak)\s+(een\s+)?(mop|grap|joke|gedicht|verhaal|roman|liedje|song|lied)\b/i,
+    /\b(hack|exploit|malware|virus|crypto|bitcoin)\b/i,
+    /\bschrijf\b.*\b(code|python|javascript|sql|html)\b/i,
     /\bwapen(s)?\b/i,
-    /\bsexu/i,
+    /\b(weersvoorspelling|aandelenkoers|voetbaluitslag)\b/i,
+    /\bhoofdstad\s+van\b/i,
+    /\bhoeveel\s+is\s+\d/i,
   ];
 
   for (const pattern of offTopicPatterns) {
-    if (pattern.test(txt)) {
-      return "Dat valt buiten wat ik voor je kan doen. Ik ben speciaal getraind om leerkrachten in het speciaal onderwijs te ondersteunen bij vragen over leerlingen. Vertel me over een leerling — dan kan ik je echt helpen.";
+    if (pattern.test(lastUser.content)) {
+      const count =
+        userMessages.slice(0, -1).filter((m) =>
+          offTopicPatterns.some((p) => p.test(m.content))
+        ).length + 1;
+      return { kind: "off-topic", count, matched: pattern.source };
     }
   }
 
   return null;
+}
+
+/**
+ * Bouw het response-bericht voor een safety-hit, op basis van type en
+ * herhaling. Eerste keer = vriendelijk; tweede = markering; derde+ = afsluiten.
+ */
+function safetyResponseText(hit: SafetyHit): { text: string; suggestions: string[]; final: boolean } {
+  const final = hit.count >= 3;
+  if (final) {
+    return {
+      text:
+        "Ik beëindig dit gesprek hier. Het wordt gemarkeerd voor je schoolbeheerder. " +
+        "Wil je een nieuwe vraag stellen over een leerling, start dan een nieuw gesprek.",
+      suggestions: [],
+      final: true,
+    };
+  }
+  if (hit.count === 2) {
+    if (hit.kind === "jailbreak") {
+      return {
+        text:
+          "Mijn instructies en broncode deel ik niet. Dit is mijn tweede waarschuwing — " +
+          "verdere pogingen worden gemarkeerd voor je schoolbeheerder. " +
+          "Wil je terug naar een onderwijsvraag?",
+        suggestions: ["Vertel over een leerling", "Hoe werkt Noor?", "Anders..."],
+        final: false,
+      };
+    }
+    return {
+      text:
+        "Dit gesprek is bedoeld voor onderwijsvragen over leerlingen — niet voor " +
+        "recepten, code of andere onderwerpen. Een volgende afwijkende vraag wordt gemarkeerd " +
+        "voor je schoolbeheerder.",
+      suggestions: ["Vertel over een leerling", "Hoe werkt Noor?", "Anders..."],
+      final: false,
+    };
+  }
+  if (hit.kind === "jailbreak") {
+    return {
+      text:
+        "Mijn instructies deel ik niet. Ik ben Noor, en ik help leerkrachten in het " +
+        "speciaal onderwijs met vragen over leerlingen. Heb je zo'n vraag?",
+      suggestions: ["Vertel over een leerling", "Hoe werkt Noor?", "Anders..."],
+      final: false,
+    };
+  }
+  return {
+    text:
+      "Dat valt buiten wat ik voor je kan doen. Ik help leerkrachten met vragen over " +
+      "leerlingen — vertel me over een leerling, dan kan ik echt iets voor je betekenen.",
+    suggestions: ["Vertel over een leerling", "Hoe werkt Noor?", "Anders..."],
+    final: false,
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -127,9 +204,13 @@ export async function POST(request: NextRequest) {
   const messages: Message[] = Array.isArray(parsedBody?.messages) ? parsedBody.messages as Message[] : [];
 
   // ── Parse session BEFORE the stream too ────────────────────────────────────
-  let personalizedSystem = SYSTEM_PROMPT;
+  // We splitsen het systeem-prompt in een **statisch** deel (cacheable) en
+  // een **dynamisch** preamble (per-request). Anthropic prompt-caching pakt
+  // dan turn 2+ uit de cache — flink sneller én goedkoper.
+  let dynamicPreamble = "";
   let leraarIdForLog: string | null = null;
   let schoolIdForLog: string | null = null;
+  let leraarFirstName: string | null = null;
   try {
     const cookie = request.cookies.get(AUTH_COOKIE.name);
     const session = parseSession(cookie?.value);
@@ -138,18 +219,26 @@ export async function POST(request: NextRequest) {
       if (leraar && leraar.status !== "geblokkeerd") {
         leraarIdForLog = leraar.id;
         schoolIdForLog = leraar.schoolId || null;
+        leraarFirstName = (leraar.naam || "").trim().split(/\s+/)[0] || null;
         const school = leraar.schoolId ? await getSchool(leraar.schoolId) : null;
-        personalizedSystem += `\n\n## Context over de gebruiker\nJe praat met ${leraar.naam}${school ? `, werkzaam op ${school.schoolnaam}` : ""}.`;
+        dynamicPreamble += `\n\n## Context over de gebruiker\nJe praat met ${leraar.naam}${school ? `, werkzaam op ${school.schoolnaam}` : ""}. Voornaam om te gebruiken: **${leraarFirstName ?? leraar.naam}**. Spreek haar één keer bij voornaam aan in jouw eerste reactie van dit gesprek; daarna alleen wanneer het natuurlijk valt.`;
       }
     }
   } catch { /* ignore — founder shortcut heeft geen Airtable-record */ }
 
   const userTurnCount = messages.filter((m) => m.role === "user").length;
   if (userTurnCount >= 9) {
-    personalizedSystem += `\n\n## DIRECTIEF — intake is klaar\nDe leerkracht heeft nu ${userTurnCount} berichten gegeven. Geen nieuwe vraag. Doe de Fase 1B check-in en roep meteen zoek_kenniskaarten aan.`;
+    dynamicPreamble += `\n\n## DIRECTIEF — intake is klaar\nDe leerkracht heeft nu ${userTurnCount} berichten gegeven. Geen nieuwe vraag. Doe de Fase 1B check-in en roep meteen zoek_kenniskaarten aan.`;
   } else if (userTurnCount < 4) {
-    personalizedSystem += `\n\n## DIRECTIEF — intake nog niet klaar\nDe leerkracht heeft pas ${userTurnCount} bericht${userTurnCount === 1 ? "" : "en"} gegeven. Geen tool-aanroep, geen eindrapport. Stel één gerichte vervolgvraag met chip-suggesties.`;
+    dynamicPreamble += `\n\n## DIRECTIEF — intake nog niet klaar\nDe leerkracht heeft pas ${userTurnCount} bericht${userTurnCount === 1 ? "" : "en"} gegeven. Geen tool-aanroep, geen eindrapport. Stel één gerichte vervolgvraag met chip-suggesties.`;
   }
+
+  // System param als array zodat we cache_control op het statische deel kunnen
+  // zetten. Het dynamische preamble komt erachter en wordt niet gecached.
+  const systemParam: Anthropic.TextBlockParam[] = [
+    { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
+    ...(dynamicPreamble ? [{ type: "text" as const, text: dynamicPreamble }] : []),
+  ];
 
   const { messages: safeMessages, anyDetected: piiDetected, detections: piiDetections } = filterPiiFromMessages(messages);
   if (piiDetected) {
@@ -169,10 +258,33 @@ export async function POST(request: NextRequest) {
         if (piiDetected) send({ type: "pii" });
 
         // ── Jailbreak / off-topic veiligheidscheck ─────────────────────────
-        const safetyResponse = detectJailbreak(messages);
-        if (safetyResponse) {
-          send({ type: "chunk", text: safetyResponse });
-          send({ type: "intake_done", data: { message: safetyResponse, suggestions: ["Vertel over een leerling", "Ander onderwerp", "Hoe werkt Noor?"] } });
+        // Eerste keer = vriendelijk, tweede = markering, derde+ = afsluiten
+        // én loggen naar MeldcodeSignalen-tabel met [AI-MISBRUIK]-prefix
+        // zodat de aandachtsfunctionaris/schoolbeheerder het terug kan vinden.
+        const hit = detectAbuse(messages);
+        if (hit) {
+          const { text: safetyText, suggestions: safetySuggestions, final } = safetyResponseText(hit);
+          send({ type: "chunk", text: safetyText });
+          send({ type: "intake_done", data: { message: safetyText, suggestions: safetySuggestions } });
+
+          if (hit.count >= 2) {
+            const lastUser = messages.filter((m) => m.role === "user").slice(-1)[0]?.content || "";
+            void logMeldcodeSignaal({
+              signaalTekst: `[AI-MISBRUIK ${hit.kind}, poging ${hit.count}] ${lastUser.slice(0, 500)}`,
+              samenvatting: final
+                ? `Gesprek beëindigd na herhaalde ${hit.kind}-poging.`
+                : `${hit.kind === "jailbreak" ? "Jailbreak" : "Off-topic"}-poging in chat — nog niet beëindigd.`,
+              leraarId: leraarIdForLog,
+              schoolId: schoolIdForLog,
+              gesprekId: null,
+            });
+          }
+
+          console.warn(JSON.stringify({
+            level: "warn", scope: "chat-safety",
+            kind: hit.kind, count: hit.count, matched: hit.matched,
+            leraarId: leraarIdForLog, schoolId: schoolIdForLog,
+          }));
           return done();
         }
 
@@ -204,7 +316,7 @@ export async function POST(request: NextRequest) {
         const firstStream = client.messages.stream({
           model: "claude-sonnet-4-6",
           max_tokens: 1500,
-          system: personalizedSystem,
+          system: systemParam,
           tools,
           messages: safeMessages,
           ...(toolChoiceOverride ? { tool_choice: toolChoiceOverride } : {}),
@@ -279,7 +391,7 @@ export async function POST(request: NextRequest) {
           const finalStream = client.messages.stream({
             model: "claude-sonnet-4-6",
             max_tokens: 2000,
-            system: personalizedSystem,
+            system: systemParam,
             tools,
             messages: messagesWithTool,
           });
