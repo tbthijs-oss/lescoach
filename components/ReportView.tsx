@@ -110,7 +110,8 @@ function KenniskaartCard({
         </span>
       </button>
 
-      <div className="px-4 py-3">
+      {/* Samenvatting altijd zichtbaar */}
+      <div className="px-4 pt-3 pb-2">
         <p className="text-sm text-slate-600 leading-relaxed">{kaart.samenvatting}</p>
       </div>
 
@@ -254,6 +255,8 @@ export function ExpertModal({
       });
       if (!res.ok) throw new Error();
       setStatus("sent");
+      // Auto-close na 3 seconden
+      setTimeout(() => onClose(), 3000);
     } catch {
       setStatus("error");
     }
@@ -365,7 +368,13 @@ export function ExpertModal({
 
               <div className="flex items-center gap-3 pt-1">
                 <button type="submit" disabled={status === "sending"}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold py-3 rounded-xl transition-colors text-sm">
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-3 rounded-xl transition-colors text-sm flex items-center justify-center gap-2">
+                  {status === "sending" && (
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.3" />
+                      <path d="M22 12a10 10 0 01-10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                    </svg>
+                  )}
                   {status === "sending" ? "Versturen…" : "Verstuur aanvraag →"}
                 </button>
                 <button type="button" onClick={onClose}
@@ -810,14 +819,4 @@ export function StickyExpertCTA({
         >
           {expert.fotoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={expert.fotoUrl} alt="" className="w-9 h-9 rounded-full object-cover border-2 border-white/30 shrink-0" />
-          ) : (
-            <span className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white text-sm font-bold shrink-0">
-              {initials || expert.naam[0]}
-            </span>
-          )}
-          <span className="flex-1 text-left text-sm leading-tight">
-            <span className="block text-[11px] text-blue-200 font-medium">Vraag advies aan</span>
-            <span className="block">{expert.naam}</span>
-          </span>
-          <svg
+            <img src={expert.f

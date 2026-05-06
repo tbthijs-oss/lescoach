@@ -207,14 +207,27 @@ export default function Home() {
             Hoi, ik ben Noor — specialist speciaal onderwijs
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 leading-tight mb-5">
-            Snel de juiste{" "}
-            <span className="text-blue-600">ondersteuning</span>{" "}
-            voor jouw leerling
+            Typ wat je ziet —{" "}
+            <span className="text-blue-600">binnen 5 minuten</span>{" "}
+            een kenniskaart én expert
           </h1>
-          <p className="text-lg text-slate-500 leading-relaxed mb-10 max-w-xl mx-auto">
-            Vertel wat je ziet. Ik stel je een paar gerichte vragen en geef je
-            concrete tips — en koppel je aan de juiste expert als dat nodig is.
+          <p className="text-lg text-slate-500 leading-relaxed mb-8 max-w-xl mx-auto">
+            Noor stelt je max. 4 gerichte vragen en geeft je concrete klassenstips.
+            Geen wachtrij, geen afspraak, geen DSM-jargon.
           </p>
+          {/* Drie kernfeiten */}
+          <div className="flex flex-wrap justify-center gap-3 mb-8">
+            {[
+              { icon: "⚡", label: "Direct antwoord" },
+              { icon: "🔒", label: "Volledig anoniem" },
+              { icon: "📋", label: "Concrete klassenstips" },
+            ].map(({ icon, label }) => (
+              <span key={label} className="inline-flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 text-sm font-medium px-3.5 py-2 rounded-full shadow-sm">
+                <span>{icon}</span>
+                {label}
+              </span>
+            ))}
+          </div>
           <Link
             href="/chat"
             className="inline-flex items-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-lg px-8 py-4 rounded-2xl transition-colors shadow-md shadow-blue-100"
@@ -222,10 +235,10 @@ export default function Home() {
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
-            Vraag Noor om hulp
+            Stel Noor een vraag →
           </Link>
           <p className="mt-4 text-sm text-slate-400">
-            Geen login · Volledig anoniem · Beschikbaar via schoolabonnement
+            Beschikbaar via schoolabonnement
           </p>
         </div>
       </section>
@@ -477,17 +490,4 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── Footer ─────────────────────────────────────────────────────────── */}
-      <footer className="text-center py-6 text-xs text-slate-400 border-t border-slate-100 bg-white">
-        LesCoach · Kenniskaarten via{" "}
-        <a href="https://kennisgroepspeciaal.nl" className="underline hover:text-slate-600" target="_blank" rel="noopener noreferrer">
-          Kennisgroep Speciaal
-        </a>
-        {" "}·{" "}
-        <Link href="/privacy" className="hover:text-slate-600">Privacy</Link>
-        {" "}·{" "}
-        <a href="mailto:thomas@lescoach.nl" className="hover:text-slate-600">Contact</a>
-      </footer>
-    </main>
-  );
-}
+      {/* ── Footer ─────────────────────────────────────────────────

@@ -34,6 +34,23 @@ function TypingIndicator() {
   );
 }
 
+function SearchingIndicator() {
+  return (
+    <div className="flex items-start gap-3">
+      <NoorAvatar size={32} className="shrink-0 mt-0.5" alt="" />
+      <div className="bg-blue-50 border border-blue-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-2 text-sm text-blue-700">
+          <svg className="w-4 h-4 shrink-0 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
+            <path d="M22 12a10 10 0 01-10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+          </svg>
+          <span>Zoeken in kennisbank…</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Chip suggestions ─────────────────────────────────────────────────────────
 
 // ─── Voice helpers ──────────────────────────────────────────────────────────
@@ -285,16 +302,19 @@ function ChipRow({
   onSelect: (s: string) => void;
   disabled: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
   if (!suggestions.length) return null;
-  // Deduplicate and drop empties so we never render a squashed row.
   const unique = Array.from(
     new Set(suggestions.map((s) => s.trim()).filter(Boolean))
   );
   if (!unique.length) return null;
+  const MAX_VISIBLE = 3;
+  const visible = expanded ? unique : unique.slice(0, MAX_VISIBLE);
+  const hiddenCount = unique.length - MAX_VISIBLE;
   return (
     <div className="flex items-start gap-3 pl-11 mt-1">
       <div className="flex flex-wrap gap-x-2 gap-y-2 max-w-full">
-        {unique.map((s) => (
+        {visible.map((s) => (
           <button
             type="button"
             key={s}
@@ -305,6 +325,16 @@ function ChipRow({
             {s}
           </button>
         ))}
+        {!expanded && hiddenCount > 0 && (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => setExpanded(true)}
+            className="inline-flex items-center text-sm leading-tight bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 px-3.5 py-2 rounded-full transition-colors font-medium shadow-sm whitespace-nowrap"
+          >
+            + {hiddenCount} meer
+          </button>
+        )}
       </div>
     </div>
   );
@@ -332,16 +362,27 @@ export default function ChatPage() {
   const [history, setHistory] = useState<Array<{ id: string; datum: string; primaryKaart: string; samenvatting: string; zoekterm: string; categorie: string }>>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [autoTts, setAutoTts] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const confirmResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoPlayAudioRef = useRef<HTMLAudioElement | null>(null);
   const prevLoadingRef = useRef(false);
   const router = useRouter();
 
-  // Laad auto-TTS voorkeur uit localStorage
+  // Laad auto-TTS voorkeur + onboarding-status uit localStorage
   useEffect(() => {
     try {
       if (localStorage.getItem("noor:autoTts") === "1") setAutoTts(true);
+      if (!localStorage.getItem("noor:onboarding:v1")) setShowOnboarding(true);
     } catch {}
   }, []);
+
+  function dismissOnboarding() {
+    setShowOnboarding(false);
+    try { localStorage.setItem("noor:onboarding:v1", "1"); } catch {}
+  }
 
   // Auto-play wanneer Noor klaar is met typen en autoTts aan staat
   useEffect(() => {
@@ -531,10 +572,11 @@ export default function ChatPage() {
                 return updated;
               });
             } else if (event.type === "searching") {
-              // Show a "Noor zoekt..." indicator in the message
+              setIsSearching(true);
+              // Verwijder de streaming placeholder — SearchingIndicator neemt het over
               setMessages((prev) => {
                 const updated = [...prev];
-                updated[updated.length - 1] = { role: "assistant", content: "Ik ga nu de kenniskaarten erbij pakken — één momentje." };
+                updated[updated.length - 1] = { role: "assistant", content: "" };
                 return updated;
               });
               streamedText = "";
@@ -549,6 +591,7 @@ export default function ChatPage() {
               setSuggestions(event.data?.suggestions || []);
               streamedText = "";
             } else if (event.type === "result") {
+              setIsSearching(false);
               const data = event.data;
               const incomingExperts: Expert[] = data.experts?.length > 0 ? data.experts : [];
               const incomingAnalysis: NoorAnalysis | null = data.analysis ?? null;
@@ -591,6 +634,7 @@ export default function ChatPage() {
       setMessages([...newMessages, { role: "assistant", content: "Sorry, er is iets misgegaan. Probeer het opnieuw." }]);
     } finally {
       setLoading(false);
+      setIsSearching(false);
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }
@@ -603,6 +647,8 @@ export default function ChatPage() {
   }
 
   function resetChat() {
+    if (confirmResetTimerRef.current) clearTimeout(confirmResetTimerRef.current);
+    setConfirmReset(false);
     setMessages([]);
     setKenniskaarten([]);
     setExperts([]);
@@ -610,13 +656,13 @@ export default function ChatPage() {
     setInput("");
     setStarted(false);
     setDone(false);
+    setIsSearching(false);
     setSelectedExpert(null);
     setAnalysis(null);
     setPrimaryKaartId(null);
     setAlternativeKaartIds([]);
     setPiiWarning(false);
     try { sessionStorage.removeItem(RESULTS_STORAGE_KEY); } catch {}
-    // trigger fresh start — show hardcoded opener instantly
     setTimeout(() => {
       setStarted(true);
       setMessages([{ role: "assistant", content: OPENING_MESSAGE }]);
@@ -624,10 +670,72 @@ export default function ChatPage() {
     }, 50);
   }
 
+  function handleResetClick() {
+    const hasConversation = messages.filter((m) => m.role === "user").length > 0;
+    if (!hasConversation) { resetChat(); return; }
+    if (confirmReset) { resetChat(); return; }
+    setConfirmReset(true);
+    if (confirmResetTimerRef.current) clearTimeout(confirmResetTimerRef.current);
+    confirmResetTimerRef.current = setTimeout(() => setConfirmReset(false), 4000);
+  }
+
   const displayExperts = experts.length > 0 ? experts : [];
 
   return (
     <div className="flex flex-col h-dvh bg-[#fefcf7] print:bg-white print:h-auto">
+      {/* Onboarding overlay — eerste keer */}
+      {showOnboarding && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6">
+            {onboardingStep === 0 ? (
+              <>
+                <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center mb-4">
+                  <NoorAvatar size={30} alt="" />
+                </div>
+                <h2 className="text-lg font-bold text-slate-800">Welkom bij Noor</h2>
+                <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+                  Noor stelt je max. 4 gerichte vragen om te snappen wat er speelt bij jouw leerling. Tik op een suggestie of typ zelf — gebruik initialen in plaats van namen.
+                </p>
+                <div className="mt-5">
+                  <button
+                    onClick={() => setOnboardingStep(1)}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-3 text-sm font-semibold transition-colors"
+                  >
+                    Volgende →
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center mb-4">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-bold text-slate-800">Je rapport verschijnt rechts</h2>
+                <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+                  Na het gesprek zoekt Noor de beste kenniskaarten op én koppelt een passende expert. Op je telefoon tik je op &ldquo;Bekijk resultaten&rdquo; om ze te zien.
+                </p>
+                <div className="mt-5 flex gap-2">
+                  <button
+                    onClick={() => setOnboardingStep(0)}
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl py-3 text-sm font-medium transition-colors"
+                  >
+                    ← Terug
+                  </button>
+                  <button
+                    onClick={dismissOnboarding}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-3 text-sm font-semibold transition-colors"
+                  >
+                    Aan de slag!
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Expert modal */}
       {selectedExpert && (
         <ExpertModal
@@ -699,11 +807,11 @@ export default function ChatPage() {
                             onClick={() => loadHistoryItem(h.id)}
                             className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors"
                           >
-                            <div className="text-sm font-medium text-slate-900 line-clamp-1">
-                              {h.primaryKaart || h.categorie || h.zoekterm || "Gesprek"}
+                            <div className="text-sm font-medium text-slate-900 line-clamp-2 leading-snug">
+                              {h.samenvatting || h.primaryKaart || h.categorie || h.zoekterm || "Gesprek"}
                             </div>
-                            {h.samenvatting && (
-                              <div className="text-xs text-slate-500 line-clamp-2 mt-0.5">{h.samenvatting}</div>
+                            {h.primaryKaart && h.samenvatting && (
+                              <div className="text-[11px] text-blue-600 mt-0.5 line-clamp-1">{h.primaryKaart}</div>
                             )}
                             <div className="text-[11px] text-slate-400 mt-1">
                               {h.datum ? new Date(h.datum).toLocaleDateString("nl-NL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : ""}
@@ -717,17 +825,47 @@ export default function ChatPage() {
               )}
             </div>
           )}
+          {/* Auto-TTS global toggle */}
           <button
-            onClick={resetChat}
-            className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-            title="Nieuw gesprek"
-            aria-label="Nieuw gesprek"
+            type="button"
+            onClick={toggleAutoTts}
+            title={autoTts ? "Automatisch voorlezen staat aan" : "Automatisch voorlezen staat uit"}
+            aria-label={autoTts ? "Stop automatisch voorlezen" : "Zet automatisch voorlezen aan"}
+            className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all ${
+              autoTts ? "bg-blue-100 text-blue-600" : "text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            }`}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072M9 9H5a1 1 0 00-1 1v4a1 1 0 001 1h4l5 4V5L9 9z" />
+              {!autoTts && <line x1="3" y1="21" x2="21" y2="3" stroke="currentColor" strokeWidth={2} />}
             </svg>
-            <span className="hidden sm:inline">Nieuw gesprek</span>
           </button>
+          {/* Nieuw gesprek — met inline confirm na eerste vraag */}
+          {confirmReset ? (
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-slate-500 hidden sm:inline">Reset?</span>
+              <button
+                onClick={resetChat}
+                className="text-xs font-semibold text-white bg-rose-500 hover:bg-rose-600 px-2.5 py-1.5 rounded-lg transition-colors"
+              >Ja</button>
+              <button
+                onClick={() => { setConfirmReset(false); if (confirmResetTimerRef.current) clearTimeout(confirmResetTimerRef.current); }}
+                className="text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 rounded-lg transition-colors"
+              >Nee</button>
+            </div>
+          ) : (
+            <button
+              onClick={handleResetClick}
+              className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              title="Nieuw gesprek"
+              aria-label="Nieuw gesprek"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span className="hidden sm:inline">Nieuw gesprek</span>
+            </button>
+          )}
           {authedUser && (
             <div className="hidden md:flex items-center gap-2 pl-3 ml-1 border-l border-slate-200">
               <div className="text-right">
@@ -763,134 +901,4 @@ export default function ChatPage() {
                     {msg.role === "assistant" && (
                       <NoorAvatar size={36} className="shrink-0 mt-0.5 shadow-sm" alt="" />
                     )}
-                    {msg.role === "user" && (
-                      <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-                        <svg className="w-4 h-4 text-slate-500" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
-                        </svg>
-                      </div>
-                    )}
-                    <div className="flex flex-col gap-1 max-w-[85%]">
-                      <div className={`rounded-2xl px-4 py-3 text-[15px] leading-relaxed shadow-sm ${
-                        msg.role === "assistant"
-                          ? "bg-white border border-amber-100 text-slate-800 rounded-tl-sm"
-                          : "bg-blue-600 text-white rounded-tr-sm"
-                      }`}>
-                        {msg.content.split("\n").map((line, j) => (
-                          <span key={j}>
-                            {line}
-                            {j < msg.content.split("\n").length - 1 && <br />}
-                          </span>
-                        ))}
-                      </div>
-                      {msg.role === "assistant" ? (
-                        <div className="flex items-center gap-1 pl-1">
-                          <SpeakerButton text={msg.content} />
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  {/* Chips appear below the last assistant message */}
-                  {msg.role === "assistant" && isLast && suggestions.length > 0 && !loading && (
-                    <ChipRow
-                      suggestions={suggestions}
-                      onSelect={(s) => sendMessage(s)}
-                      disabled={loading}
-                    />
-                  )}
-                </div>
-              );
-            })}
-
-            {loading && <TypingIndicator />}
-            <div ref={bottomRef} />
-          </div>
-
-          {/* Subtle intake progress — visible until zoek_kenniskaarten returns results */}
-          {(() => {
-            const userTurns = messages.filter((m) => m.role === "user").length;
-            if (done || userTurns < 1 || userTurns >= 9) return null;
-            // Show 5 dots — landing-zone for an ideal intake (4-7 vragen).
-            // Dots fill 1:1 with the user-turn count, clamped at 5.
-            const filled = Math.min(userTurns, 5);
-            return (
-              <div className="shrink-0 text-center px-4 pb-1 pt-0.5">
-                <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-400">
-                  <span className="flex gap-0.5">
-                    {[0,1,2,3,4].map((i) => (
-                      <span
-                        key={i}
-                        className={`w-1.5 h-1.5 rounded-full ${i < filled ? "bg-blue-500" : "bg-slate-300"}`}
-                      />
-                    ))}
-                  </span>
-                  <span>Intake bezig</span>
-                </span>
-              </div>
-            );
-          })()}
-
-          {/* Mobile: done banner — opent de eigen /resultaten pagina */}
-          {done && kenniskaarten.length > 0 && (
-            <div className="lg:hidden shrink-0 mx-4 mb-3">
-              <button
-                onClick={() => router.push("/resultaten")}
-                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-2xl p-4 flex items-center justify-between shadow-sm active:scale-[0.99] transition-transform"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <div className="text-left">
-                    <div className="text-sm font-semibold">Bekijk resultaten</div>
-                    <div className="text-xs text-blue-100">{kenniskaarten.length} kenniskaart{kenniskaarten.length === 1 ? "" : "en"} &middot; {displayExperts.length} expert{displayExperts.length === 1 ? "" : "s"}</div>
-                  </div>
-                </div>
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </div>
-          )}
-
-          {/* Input */}
-          <div className="shrink-0 bg-white border-t border-amber-100 px-4 py-3 pb-[env(safe-area-inset-bottom,0.75rem)]">
-            {piiWarning && (
-              <div className="max-w-3xl mx-auto mb-2 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-xs text-amber-800">
-                <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16a2 2 0 001.73 3z" />
-                </svg>
-                <div className="flex-1">
-                  <span className="font-medium">Tip: gebruik geen namen, telefoonnummers of BSN.</span>{" "}
-                  <span>We hebben de herkenbare gegevens automatisch weggehaald voordat Noor je bericht las. Gebruik liever initialen (bv. &quot;leerling M.&quot;) om AVG-risico te beperken.</span>
-                </div>
-                <button
-                  onClick={() => setPiiWarning(false)}
-                  aria-label="Sluiten"
-                  className="shrink-0 text-amber-600 hover:text-amber-800"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            )}
-            <div className="flex items-end gap-2 max-w-3xl mx-auto">
-              <MicButton
-                disabled={loading}
-                onTranscript={(t) => setInput(t)}
-                getCurrentInput={() => input}
-              />
-              {/* Auto-TTS toggle — voorlezen na elk bericht */}
-              <button
-                type="button"
-                onClick={toggleAutoTts}
-                title={autoTts ? "Automatisch voorlezen staat aan — klik om uit te zetten" : "Automatisch voorlezen staat uit — klik om aan te zetten"}
-                aria-label={autoTts ? "Stop automatisch voorlezen" : "Zet automatisch voorlezen aan"}
-                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all ${
-                  autoTts
-                    ? "bg-blue-100 text-blue-600 ring-2 ring-blue-300"
-                    : "bg-slate-100 text-slate-400 hover
+                    
