@@ -62,7 +62,7 @@ const BENEFITS = [
     ),
     titel: "Begrijpelijke taal",
     tekst:
-      "Geen DSM-codes, geen klinisch jargon. Noor legt uit in gewone taal wat er speelt en wat het betekent voor jouw klas.",
+      "Noor legt uit in gewone taal wat er speelt en wat het betekent voor jouw klas.",
   },
   {
     icon: (
@@ -187,12 +187,17 @@ export default function Home() {
             <NoorAvatar size={32} />
             <span className="text-slate-800 font-semibold text-sm">LesCoach</span>
           </div>
-          <Link
-            href="/chat"
-            className="text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors"
-          >
-            Gesprek starten →
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/experts" className="text-sm font-medium text-slate-600 hover:text-[#8B1A4A] transition-colors">
+              Experts
+            </Link>
+            <Link
+              href="/chat"
+              className="text-sm font-semibold text-white bg-[#8B1A4A] hover:bg-[#7a1740] px-4 py-2 rounded-lg transition-colors"
+            >
+              Gesprek starten →
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -212,9 +217,8 @@ export default function Home() {
             een kenniskaart én expert
           </h1>
           <p className="text-lg text-slate-500 leading-relaxed mb-8 max-w-xl mx-auto">
-            Noor stelt een paar gerichte vragen en geeft je concrete klassenstips
-            op basis van kenniskaarten van Kennisgroep Speciaal. Geen wachtrij, geen
-            afspraak, geen DSM-jargon.
+            Noor stelt een paar gerichte vragen en geeft je concrete klassenstips.
+            Geen wachtrij, geen afspraak.
           </p>
           {/* Drie kernfeiten */}
           <div className="flex flex-wrap justify-center gap-3 mb-8">
@@ -497,6 +501,8 @@ export default function Home() {
         <a href="https://kennisgroepspeciaal.nl" className="underline hover:text-slate-600" target="_blank" rel="noopener noreferrer">
           Kennisgroep Speciaal
         </a>
+        {" "}·{" "}
+        <Link href="/experts" className="hover:text-slate-600">Experts</Link>
         {" "}·{" "}
         <Link href="/privacy" className="hover:text-slate-600">Privacy</Link>
         {" "}·{" "}
