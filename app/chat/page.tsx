@@ -923,7 +923,7 @@ export default function ChatPage() {
               const isLast = i === messages.length - 1;
               // Skip de lege streaming-placeholder — de TypingIndicator hieronder
               // toont "Noor denkt na" totdat het eerste fragment binnenkomt.
-              if (msg.role === "assistant" && msg.content.length === 0) return null;
+              if (msg.role === "assistant" && msg.content.trim().length === 0) return null;
               return (
                 <div key={i} className="space-y-2">
                   <div className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
@@ -954,11 +954,11 @@ export default function ChatPage() {
                           isLast &&
                           loading &&
                           !isSearching &&
-                          msg.content.length > 0 && (
+                          msg.content.trim().length > 0 && (
                             <span className="noor-cursor text-blue-500" aria-hidden="true" />
                           )}
                       </div>
-                      {msg.role === "assistant" && isLast ? (
+                      {msg.role === "assistant" && isLast && msg.content.trim().length > 0 ? (
                         <div className="flex items-center gap-1 pl-1">
                           <SpeakerButton text={msg.content} />
                         </div>
@@ -1012,7 +1012,7 @@ export default function ChatPage() {
             {isSearching && <SearchingIndicator />}
             {loading && !isSearching && (() => {
               const last = messages[messages.length - 1];
-              const lastIsEmpty = !!last && last.role === "assistant" && last.content.length === 0;
+              const lastIsEmpty = !!last && last.role === "assistant" && last.content.trim().length === 0;
               return lastIsEmpty ? <TypingIndicator /> : null;
             })()}
             <div ref={bottomRef} />
