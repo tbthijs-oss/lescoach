@@ -558,47 +558,40 @@ export function ReportView({
 
       <div className={`px-4 sm:px-5 space-y-5 max-w-2xl mx-auto ${isPage && experts.length > 0 ? "pb-32" : "pb-8"}`}>
 
-        {/* Primary insight card */}
-        {primary && (
-          <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-5 shadow-sm">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-blue-700 mb-2">
-              Beeld dat hierbij past
-            </div>
-            <div className="flex items-start gap-3 mb-3">
-              <svg className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 2l2.4 5.4L18 8.4l-4 3.9.9 5.7L10 15.4 5.1 18l.9-5.7-4-3.9 5.6-1L10 2z" />
-              </svg>
-              <div className="min-w-0">
-                <h2 className={`font-bold text-slate-900 leading-tight ${isPage ? "text-xl" : "text-lg"}`}>
-                  {primary.titel}
-                </h2>
-                {primary.categorie && (
-                  <div className="text-xs text-slate-500 mt-0.5">{primary.categorie}</div>
-                )}
+        {/* Wat Noor erin ziet → expert is de hoofduitkomst */}
+        {experts.length > 0 && (
+          <div className="rounded-3xl border-2 border-blue-300 bg-white p-1 shadow-sm print:hidden">
+            <div className="px-4 pt-4 pb-2">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-blue-700 mb-1">
+                Volgende stap
               </div>
-            </div>
-            {analysis?.insight && (
-              <p className={`text-slate-700 leading-relaxed ${isPage ? "text-[15px]" : "text-sm"}`}>
-                {analysis.insight}
+              <p className="text-sm text-slate-700 leading-relaxed">
+                Voor een precies advies op deze leerling: leg de casus voor aan {experts.length === 1 ? "de expert hieronder" : "een van de experts hieronder"}. Het hele rapport gaat automatisch mee.
               </p>
-            )}
+            </div>
+            <div className="space-y-3 p-3">
+              {experts.map((expert) => (
+                <ExpertCard
+                  key={expert.id}
+                  expert={expert}
+                  onContact={onContactExpert}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
-            {/* Primary-kaart trefwoorden as pills — quick scan of adjacent themes */}
-            {primary.trefwoorden && primary.trefwoorden.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {primary.trefwoorden.slice(0, 6).map((t) => (
-                  <span
-                    key={t}
-                    className="text-[11px] font-medium text-blue-700 bg-white/70 border border-blue-200 px-2 py-0.5 rounded-full"
-                  >
-                    {t}
-                  </span>
-                ))}
-              </div>
-            )}
-
+        {/* Wat Noor erin ziet — als korte prosa */}
+        {analysis?.insight && (
+          <div className="rounded-2xl border border-slate-200 bg-white p-5">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+              Wat Noor erin ziet
+            </div>
+            <p className={`text-slate-700 leading-relaxed ${isPage ? "text-[15px]" : "text-sm"}`}>
+              {analysis.insight}
+            </p>
             <div className="mt-3 text-xs text-slate-500 italic">
-              Dit wordt in een gesprek met een expert verder verkend — Noor stelt geen diagnose.
+              Noor stelt geen diagnose — een expert verkent dit met je verder.
             </div>
           </div>
         )}
@@ -655,43 +648,21 @@ export function ReportView({
           </div>
         )}
 
-        {/* Expert CTA — prominent */}
-        {experts.length > 0 && (
-          <div className="pt-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3 px-1 print:hidden">
-              {experts.length === 1 ? "Passende expert" : "Passende experts"}
-            </h3>
-            <div className="space-y-3 print:hidden">
-              {experts.map((expert) => (
-                <ExpertCard
-                  key={expert.id}
-                  expert={expert}
-                  onContact={onContactExpert}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* All kenniskaarten — primary first, top alternatives styled as co-primary, rest collapsed */}
+        {/* Verkende beelden — kenniskaarten als suggesties, niet als diagnose */}
         {kenniskaarten.length > 0 && (
           <div className="pt-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3 px-1">
-              {topAlternatives.length > 0
-                ? `Top ${1 + topAlternatives.length} kenniskaarten (van ${kenniskaarten.length})`
-                : `Alle kenniskaarten (${kenniskaarten.length})`}
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2 px-1">
+              Verkende beelden (suggesties, geen diagnose)
             </h3>
-            {topAlternatives.length > 0 && (
-              <p className="text-xs text-slate-500 mb-3 px-1">
-                Noor twijfelt tussen deze kaarten — ze passen allemaal bij het beeld. Lees ze naast elkaar om te kiezen wat voor jouw leerling het sterkst resoneert.
-              </p>
-            )}
+            <p className="text-xs text-slate-500 mb-3 px-1">
+              Noor heeft deze beelden bekeken bij jouw casus. Ze hoeven niet allemaal te kloppen — gebruik ze als startpunt voor het gesprek met een expert.
+            </p>
             <div className="space-y-3">
               {primary && (
-                <KenniskaartCard kaart={primary} isPrimary defaultOpen={false} />
+                <KenniskaartCard kaart={primary} defaultOpen={false} />
               )}
               {topAlternatives.map((k) => (
-                <KenniskaartCard key={k.id} kaart={k} isPrimary defaultOpen={false} />
+                <KenniskaartCard key={k.id} kaart={k} defaultOpen={false} />
               ))}
               {overige.map((k) => (
                 <KenniskaartCard key={k.id} kaart={k} />
