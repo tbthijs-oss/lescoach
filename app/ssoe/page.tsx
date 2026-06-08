@@ -53,16 +53,16 @@ const STAPPEN = [
   "Noor koppelt de leerkracht aan de juiste expert binnen SSOE, met het hele verslag erbij.",
 ];
 
-const VERVANGT = [
-  ["Snel advies over gedrag of leerprobleem", true, "Algemeen, niet voor het SO, geen bron"],
-  ["Werkbladen en teksten op leesniveau", true, "Ja, maar zonder kader of doelgroep"],
-  ["Conceptbrieven aan ouders", true, "Ja, maar in willekeurige tools"],
-  ["Sociale verhalen op maat", true, "Ja, tijdrovend en ongestructureerd"],
-  ["Koppeling aan een echte expert", false, "Niet mogelijk"],
-  ["Geen leerlinggegevens opgeslagen", false, "Onbekend waar data heen gaat"],
-  ["Verwerkersovereenkomst en IBP-documentatie", false, "Niet aanwezig"],
-  ["Inzicht voor de schoolleiding", false, "Niet mogelijk"],
-];
+const VERVANGT: [string, "nu" | "roadmap", string][] = [
+  ["Snel, onderbouwd advies over gedrag of leerprobleem", "nu", "Algemeen, niet voor het SO, geen bron"],
+  ["Koppeling aan de juiste expert binnen SSOE", "nu", "Niet mogelijk"],
+  ["Geen leerlinggegevens opgeslagen", "nu", "Onbekend waar data heen gaat"],
+  ["Verwerkersovereenkomst beschikbaar", "nu", "Niet aanwezig"],
+  ["Werkbladen en teksten op leesniveau", "roadmap", "Ja, maar zonder kader of doelgroep"],
+  ["Conceptbrieven aan ouders", "roadmap", "Ja, maar in willekeurige tools"],
+  ["Sociale verhalen op maat", "roadmap", "Ja, tijdrovend en ongestructureerd"],
+  ["Inzicht voor de schoolleiding", "roadmap", "Niet mogelijk"],
+]
 
 const TOEKOMST = [
   ["Lesvoorbereiding en differentiatie", "Werkbladen, teksten op leesniveau, toetsvragen, passend bij de doelgroep en gekoppeld aan de kenniskaarten."],
@@ -291,7 +291,8 @@ export default function SsoePage() {
       <Section id="vergelijking" alt>
         <H2>Wat uw leerkrachten nu in gratis AI doen, veilig binnen SSOE</H2>
         <p className="text-[#475569] mt-2 max-w-2xl">
-          Het gebruik is er al. De vraag is of het binnen of buiten uw kaders gebeurt.
+          Het gebruik is er al. De vraag is of het binnen of buiten uw kaders gebeurt. Wat Noor vandaag al
+          doet ziet u hieronder; de items op de roadmap bouwen we samen in het partnerschap.
         </p>
         <div className="mt-8 overflow-hidden rounded-2xl border border-[#e7e2d6] bg-white">
           <div className="grid grid-cols-[1fr_auto_auto] sm:grid-cols-[2fr_1fr_1fr] gap-px bg-[#e7e2d6] text-sm">
@@ -300,8 +301,8 @@ export default function SsoePage() {
             <div className="bg-[#16243f] text-white font-semibold p-4 text-center hidden sm:block">
               Gratis AI-tool
             </div>
-            {VERVANGT.map(([taak, , losse], i) => (
-              <Row key={i} taak={taak as string} losse={losse as string} />
+            {VERVANGT.map(([taak, status, losse], i) => (
+              <Row key={i} taak={taak} status={status} losse={losse} />
             ))}
           </div>
         </div>
@@ -530,12 +531,18 @@ export default function SsoePage() {
   );
 }
 
-function Row({ taak, losse }: { taak: string; losse: string }) {
+function Row({ taak, status, losse }: { taak: string; status: "nu" | "roadmap"; losse: string }) {
   return (
     <>
       <div className="bg-white p-4 text-[#334155]">{taak}</div>
       <div className="bg-white p-4 flex justify-center">
-        <Check />
+        {status === "nu" ? (
+          <Check />
+        ) : (
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-[#b45309] bg-[#fef3e8] rounded-full px-2 py-1 whitespace-nowrap">
+            Op de roadmap
+          </span>
+        )}
       </div>
       <div className="bg-white p-4 text-xs text-[#94a3b8] hidden sm:flex items-center gap-2">
         <Cross />
