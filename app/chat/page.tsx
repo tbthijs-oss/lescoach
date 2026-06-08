@@ -720,7 +720,7 @@ export default function ChatPage() {
                 </div>
                 <h2 className="text-lg font-bold text-slate-800">Welkom bij Noor</h2>
                 <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-                  Noor stelt je max. 4 gerichte vragen om te snappen wat er speelt bij jouw leerling. Tik op een suggestie of typ zelf — gebruik initialen in plaats van namen.
+                  Noor stelt je een paar gerichte vragen om te snappen wat er speelt bij jouw leerling. Tik op een suggestie of typ zelf, gebruik initialen in plaats van namen.
                 </p>
                 <div className="mt-5">
                   <button
@@ -1022,11 +1022,11 @@ export default function ChatPage() {
           {(() => {
             const userTurns = messages.filter((m) => m.role === "user").length;
             if (done || userTurns < 1 || userTurns >= 9) return null;
-            const vraagNr = Math.min(userTurns + 1, 4);
+            const vraagNr = userTurns + 1;
             return (
               <div className="shrink-0 text-center px-4 pb-1 pt-0.5">
                 <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-400 bg-slate-100 rounded-full px-3 py-1">
-                  Vraag {vraagNr} van max. 4
+                  Vraag {vraagNr}
                 </span>
               </div>
             );
