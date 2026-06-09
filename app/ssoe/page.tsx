@@ -131,7 +131,39 @@ const FAQ = [
     "Waarom geen losse tool maar een partnerschap?",
     "Een tool lost een vraag op, een partnerschap lost het probleem op. We bouwen mee aan wat SSOE als expertisecentrum nodig heeft: koppelingen, kennisborging, regionaal aanbod. U bepaalt in de stuurgroep wat eerst komt.",
   ],
-];
+  [
+    "Wordt onze data gebruikt om het AI-model te trainen?",
+    "Nee. Noor draait op de zakelijke API van Anthropic; gesprekken worden niet gebruikt om modellen te trainen. Noor werkt bovendien anoniem over de leerling, zonder namen of dossiers, dus er gaat geen herleidbare leerlinginformatie naar derden.",
+  ],
+  [
+    "Waar staat onze data, en hoe zit het met EU-hosting?",
+    "Omdat Noor geen leerlingnamen of dossiers opslaat, is het AVG-risico structureel laag, ongeacht de locatie. Data loopt nu via gevestigde verwerkers onder een verwerkersovereenkomst en EU-modelcontracten (SCC's). EU-datahosting staat als concrete stap op de roadmap van het partnerschap, passend bij uw IBP-groeipad.",
+  ],
+  [
+    "Wat moeten wij als ICT doen om dit uit te rollen?",
+    "Vrijwel niets om te starten: geen installatie, geen software op apparaten, geen koppeling met uw systemen nodig. Leerkrachten gebruiken Noor gewoon in de browser. Een AFAS-koppeling voor automatische accounts is optioneel en pakken we later in het partnerschap op, op uw tempo.",
+  ],
+  [
+    "Wat als een leerkracht een onvolledig of verkeerd advies krijgt?",
+    "Noor stelt nooit een diagnose en werkt binnen de kaders van de BIG-wet, AVG, Jeugdwet en de Meldcode. Ze geeft een onderbouwde richting en koppelt voor het echte werk door naar uw eigen expert. De professional houdt altijd de eindverantwoordelijkheid; Noor ondersteunt, beslist niet.",
+  ],
+  [
+    "Waar komen de kenniskaarten vandaan?",
+    "De kenniskaarten zijn gebaseerd op vakliteratuur en praktijk in het speciaal onderwijs, geschreven in begrijpelijke taal. In het partnerschap vullen we ze aan met de kennis van uw eigen specialisten, zodat de inhoud aansluit op uw doelgroepen.",
+  ],
+  [
+    "Hoe weten we of leerkrachten het echt gaan gebruiken?",
+    "Dat meet de pilot. Vooraf spreken we criteria af (gebruik, tevredenheid, tijdwinst) en bij het beslismoment in week 10 kijkt u naar de feiten, niet naar beloftes. Een korte onboarding houdt de drempel laag.",
+  ],
+  [
+    "Wat gebeurt er als Noor een zorgsignaal oppikt?",
+    "Herkent Noor een signaal dat past bij de Meldcode, dan markeert ze dat. Uw aandachtsfunctionaris ziet die signalen in een eigen overzicht en bepaalt zelf de vervolgstap. De meldcode-route blijft volledig bij u, met een betere registratie.",
+  ],
+  [
+    "Van wie is de kennis die we samen opbouwen?",
+    "De kennis en kenniskaarten die we met uw specialisten ontwikkelen, blijven van SSOE. Het partnerschap borgt die kennis en maakt haar schaalbaar; het neemt haar niet over.",
+  ],
+]
 
 function Section({ id, children, alt }: { id?: string; children: React.ReactNode; alt?: boolean }) {
   return (
