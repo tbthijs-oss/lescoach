@@ -537,17 +537,17 @@ export default function SsoePage() {
           </p>
           <div className="flex flex-wrap justify-center gap-3 mt-8">
             <a
-              href="mailto:thomas@lescoach.nl?subject=Kennismaking%20LesCoach%20en%20SSOE&body=Beste%20Thomas%2C%20we%20maken%20graag%20een%20afspraak.%20Een%20moment%20dat%20ons%20schikt%20is%3A%20"
+              href="mailto:hallo@lescoach.nl?subject=Kennismaking%20LesCoach%20en%20SSOE&body=Beste%20Thomas%2C%20we%20maken%20graag%20een%20afspraak.%20Een%20moment%20dat%20ons%20schikt%20is%3A%20"
               className="rounded-full px-6 py-3 font-semibold text-[#16243f]"
               style={{ background: AMBER }}
             >
               Plan een afspraak
             </a>
             <a
-              href="mailto:thomas@lescoach.nl"
+              href="mailto:hallo@lescoach.nl"
               className="rounded-full px-6 py-3 font-semibold border border-white/30 hover:bg-white/10"
             >
-              thomas@lescoach.nl
+              hallo@lescoach.nl
             </a>
           </div>
           <p className="text-white/50 text-sm mt-6">
